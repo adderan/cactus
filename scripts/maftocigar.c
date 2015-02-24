@@ -4,9 +4,6 @@
 
 int main(int argc, char **argv)
 {
-	//PairwiseMafBlock *block;
-	//block = parseMaf(stdin);
-	//pairwiseMafBlockDestruct(block);
 	PairwiseMafBlock *block;
 	while((block = parseMaf(stdin)) != NULL) {
 		CigarAlignment *ca = mafToCigar(block);
