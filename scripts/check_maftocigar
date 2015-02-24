@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+DATA=../../cactusTestData/MAY-2005/ENm001/
+FILE1=${DATA}/${1}.ENm001.fa
+FILE2=${DATA}/${2}.ENm001.fa
+LASTZ=../bin/cactus_lastz
+
+${LASTZ} --format=cigar ${FILE1} ${FILE2} > lastztemp.cigar
+
+${LASTZ} --format=maf ${FILE1} ${FILE2} > lastztemp.maf
+
+
+./maftocigar < lastztemp.maf > lastzconvtemp.cigar
+
+echo "Compare maftocigar with LASTZ cigar format for FILE1-FILE2:"
+diff lastztemp.cigar lastzconvtemp.cigar
+
+
+
+${LASTZ} --format=cigar --notrivial ${FILE1} ${FILE1} > lastznotrivialtemp.cigar
+
+${LASTZ} --format=maf ${FILE1} ${FILE1} > lastzwithtrivial.maf
+./maftocigar --notrivial < lastzwithtrivial.maf > lastznotrivialconvertedtemp.cigar
+
+
+echo "Compare maftocigar with LASTZ output for FILE1-FILE1 with --notrivial set:"
+diff lastznotrivialtemp.cigar lastznotrivialconvertedtemp.cigar
+
+rm lastztemp.cigar lastzwithtrivial.maf lastztemp.maf lastznotrivialtemp.cigar lastzconvtemp.cigar lastznotrivialconvertedtemp.cigar
+

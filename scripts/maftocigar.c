@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 {
 	int notrivial = 0;
 	PairwiseMafBlock *block;
-	if(argc > 2 && strcmp(argv[1], "--notrivial") == 0) {
+	if(argc > 1 && strcmp(argv[1], "--notrivial") == 0) {
 		notrivial = 1;
 		fprintf(stderr, "using --notrivial.\n");
 	}
