@@ -118,12 +118,12 @@
 		<!-- Arguments for LAST-->
 		<divergence 
 			argName="lastArguments"
-		 	one="--x=3000"
-		 	two="--x=3000"
-		 	three="--x=3000"
-		 	four="--x=3000"
-		 	five="--x=3000"
-		 	default="--x=3000"
+		 	one="--x=10000"
+		 	two="--x=10000"
+		 	three="--x=10000"
+		 	four="--x=10000"
+		 	five="--x=10000"
+		 	default="--x=10000"
 		 />
 		<CactusCafRecursion maxFlowerGroupSize="100000000"/>
 		<CactusCafWrapper minFlowerSize="1" maxFlowerGroupSize="25000000"/>
