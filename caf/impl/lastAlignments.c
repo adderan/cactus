@@ -32,7 +32,7 @@ stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, con
         }
         else {
 			command = stString_print(
-				"cactus_lastdb temp %s && cactus_lastal %s temp %s | maftocigar", tempFile1, lastArgs, tempFile1);
+				"cactus_lastdb temp %s && cactus_lastal %s temp %s | maftocigar ", tempFile1, lastArgs, tempFile1);
         }
         FILE *fileHandle = popen(command, "r");
         if (fileHandle == NULL) {

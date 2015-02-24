@@ -1,15 +1,19 @@
 rootPath = ../
 include ../include.mk
-sources = maftocigar.c
 CFLAGS =-g -Wall -Werror
 CC = gcc
 
+all:maftocigar
+maftocigar: alignmentFormats.o maftocigar.o
+	${CC} ${CFLAGS} -o maftocigar alignmentFormats.o maftocigar.o ${sonLibPath}/sonLib.a
+	cp maftocigar ${binPath}/maftocigar
 
-all: ${sources}
-	${CC} -o maftocigar ${CFLAGS} -I ${sonLibPath} ${sources} ${sonLibPath}/sonLib.a
-	cp maftocigar ${binPath}
-	
+maftocigar.o: maftocigar.c
+	${CC} -c ${CFLAGS} -I ${sonLibPath} maftocigar.c
+alignmentFormats.o: alignmentFormats.c alignmentFormats.h
+	${CC} -c ${CFLAGS} -I ${sonLibPath} alignmentFormats.c
 clean:
 	cd ${binPath} && rm maftocigar
 	rm maftocigar
+	rm *.o
 	
