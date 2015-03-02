@@ -10,7 +10,8 @@ MafAlignment *mafAlignmentConstruct(char *line)
 	char *seq = st_calloc(1, seqlen + 1);
 	int start, size, length;
 	int ret;
-	ret = sscanf(line, "%c %s %d %d %c %d %s", &firstchar, name, &start, &size, &strand, &length, seq);
+	ret = sscanf(line, "%c %s %d %d %c %d %s", 
+			&firstchar, name, &start, &size, &strand, &length, seq);
 	if(ret != 7) {
 		return(NULL);
 	}	
@@ -115,12 +116,16 @@ CigarAlignment *mafToCigar(PairwiseMafBlock *block)
 
 	//wrap around if strand is negative
 	if(block->a1->strand ==  '-') {
-		cigarAlignment->targetstart = block->a1->length - cigarAlignment->targetstart;
-		cigarAlignment->targetstop = block->a1->length - cigarAlignment->targetstop;
+		cigarAlignment->targetstart = 
+			block->a1->length - cigarAlignment->targetstart;
+		cigarAlignment->targetstop = 
+			block->a1->length - cigarAlignment->targetstop;
 	}
 	if(block->a2->strand == '-') {
-		cigarAlignment->querystart = block->a2->length - cigarAlignment->querystart;
-		cigarAlignment->querystop = block->a2->length - cigarAlignment->querystop;
+		cigarAlignment->querystart = 
+			block->a2->length - cigarAlignment->querystart;
+		cigarAlignment->querystop = 
+			block->a2->length - cigarAlignment->querystop;
 	}
 	
 	cigarAlignment->targetstrand = block->a1->strand;
@@ -131,7 +136,11 @@ CigarAlignment *mafToCigar(PairwiseMafBlock *block)
 }
 void printCigar(CigarAlignment *cigar)
 {
-	printf("cigar: %s %d %d %c %s %d %d %c %d %s\n", cigar->queryname, cigar->querystart, cigar->querystop, cigar->querystrand, cigar->targetname, cigar->targetstart, cigar->targetstop, cigar->targetstrand, cigar->score, cigar->cigarstring);
+	printf("cigar: %s %d %d %c %s %d %d %c %d %s\n", 
+			cigar->queryname, cigar->querystart, cigar->querystop, 
+			cigar->querystrand, cigar->targetname, cigar->targetstart, 
+			cigar->targetstop, cigar->targetstrand, cigar->score, 
+			cigar->cigarstring);
 }
 
 void cigarAlignmentDestruct(CigarAlignment *alignment) 
