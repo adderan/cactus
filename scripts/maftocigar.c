@@ -1,6 +1,7 @@
 #include "alignmentFormats.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 
 int isTrivial(CigarAlignment *c)
@@ -10,11 +11,15 @@ int isTrivial(CigarAlignment *c)
 }
 int main(int argc, char **argv)
 {
-	int notrivial = 0;
+	static int notrivial;
 	PairwiseMafBlock *block;
-	if(argc > 1 && strcmp(argv[1], "--notrivial") == 0) {
-		notrivial = 1;
-		fprintf(stderr, "using --notrivial.\n");
+	int c;
+	while(1) {
+		static struct option opts[] = 
+			{{"notrivial", no_argument, &notrivial, 1}};
+		int option_index = 0;
+		c = getopt_long(argc, argv, "", opts, &option_index);
+		if(c == -1) break;
 	}
 	while((block = parseMaf(stdin)) != NULL) {
 		CigarAlignment *ca = mafToCigar(block);
