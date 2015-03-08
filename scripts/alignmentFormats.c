@@ -38,7 +38,8 @@ PairwiseMafBlock *pairwiseMafBlockConstruct(char *scoreline, char *line1, char *
 	MafAlignment *alignment1 = mafAlignmentConstruct(line1);
 	MafAlignment *alignment2 = mafAlignmentConstruct(line2);
 	if(!alignment1 || !alignment2) {
-		fprintf(stderr, "Warning: unable to parse alignment lines, skipping.\n");
+		fprintf(stderr, "Warning: unable 
+				to parse alignment lines, skipping.\n");
 		return NULL;
 	}
 	PairwiseMafBlock *block = st_malloc(sizeof(PairwiseMafBlock));
@@ -62,8 +63,12 @@ void pairwiseMafBlockDestruct(PairwiseMafBlock *block)
 void printMafBlock(PairwiseMafBlock *block) 
 {
 	printf("a score=%d\n", block->score);
-	printf("s %s %d %d %c %d %s\n", block->a1->name, block->a1->start, block->a1->size, block->a1->strand, block->a1->length, block->a1->seq);
-	printf("s %s %d %d %c %d %s\n", block->a2->name, block->a2->start, block->a2->size, block->a2->strand, block->a2->length, block->a2->seq);
+	printf("s %s %d %d %c %d %s\n", block->a1->name, block->a1->start, 
+			block->a1->size, block->a1->strand, block->a1->length, 
+			block->a1->seq);
+	printf("s %s %d %d %c %d %s\n", block->a2->name, block->a2->start, 
+			block->a2->size, block->a2->strand, block->a2->length, 
+			block->a2->seq);
 }
 
 char getCigarMode(char c1, char c2) 
@@ -78,7 +83,7 @@ char getCigarMode(char c1, char c2)
 		return('M');
 	}
 }
-		
+
 char *makeCigarString(char *target, char *query) 
 {
 	int len = strlen(target);
