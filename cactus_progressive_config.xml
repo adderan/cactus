@@ -113,7 +113,8 @@
                 phylogenyCostPerDupPerBase="0.05"
                 phylogenyCostPerLossPerBase="0.02"
                 phylogenyDoSplitsWithSupportHigherThanThisAllAtOnce="0.44"
-                numTreeBuildingThreads="2"
+		numTreeBuildingThreads="2"
+		lastalArguments="-e 35"
 	        >
 		<!-- Arguments for LAST-->
 		<divergence 
@@ -128,10 +129,10 @@
 			five=""
 		 	default=""
 		-->
-		<lastaldivergence
+		<!--lastaldivergence
 			argName="lastalArguments"
-			default=""
-		/>
+			default="-fldsfjldsf"
+		-->	
 		<CactusCafRecursion maxFlowerGroupSize="100000000"/>
 		<CactusCafWrapper minFlowerSize="1" maxFlowerGroupSize="25000000"/>
 		<CactusCafWrapperLarge2 overlargeMemory="bigMemory"/>

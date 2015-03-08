@@ -324,9 +324,9 @@ int main(int argc, char *argv[]) {
             case 'd':
                 lastdbArguments = stString_copy(optarg);
                 break;
-			case 'e':
-				lastalArguments = stString_copy(optarg);
-				break;
+	    case 'e':
+		lastalArguments = stString_copy(optarg);
+		break;
             case 'h':
                 usage();
                 return 0;
@@ -480,7 +480,6 @@ int main(int argc, char *argv[]) {
     ///////////////////////////////////////////////////////////////////////////
     // (0) Check the inputs.
     ///////////////////////////////////////////////////////////////////////////
-
     assert(cactusDiskDatabaseString != NULL);
     assert(minimumTreeCoverage >= 0.0);
     assert(minimumTreeCoverage <= 1.0);
