@@ -13,7 +13,7 @@
 #include "pairwiseAlignment.h"
 #include "blastAlignmentLib.h"
 
-stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, const char *lastArgs,
+stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, const char *lastdbArgs, const char *lastalArgs,
         bool realign, const char *realignArgs,
         char *tempFile1) {
     /*
@@ -27,12 +27,12 @@ stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, con
          */
         char *command = NULL;
         if(realign) {
-			command = stString_print("cactus_lastdb temp %s && cactus_lastal %s temp %s | maftocigar --notrivial| cactus_realign %s %s", 
-				tempFile1, lastArgs, tempFile1, realignArgs, tempFile1);
+			command = stString_print("cactus_lastdb %s temp %s && cactus_lastal %s temp %s | maftocigar --notrivial| cactus_realign %s %s", 
+				lastdbArgs, tempFile1, lastalArgs, tempFile1, realignArgs, tempFile1);
         }
         else {
 			command = stString_print(
-				"cactus_lastdb temp %s && cactus_lastal %s temp %s | maftocigar --notrivial", tempFile1, lastArgs, tempFile1);
+				"cactus_lastdb %s temp %s && cactus_lastal %s temp %s | maftocigar --notrivial", lastdbArgs, tempFile1, lastalArgs, tempFile1);
         }
         FILE *fileHandle = popen(command, "r");
         if (fileHandle == NULL) {

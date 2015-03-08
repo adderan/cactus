@@ -38,7 +38,7 @@ PairwiseMafBlock *pairwiseMafBlockConstruct(char *scoreline, char *line1, char *
 	MafAlignment *alignment1 = mafAlignmentConstruct(line1);
 	MafAlignment *alignment2 = mafAlignmentConstruct(line2);
 	if(!alignment1 || !alignment2) {
-		fprintf(stderr, "Warning: unable 
+		fprintf(stderr, "Warning: unable \
 				to parse alignment lines, skipping.\n");
 		return NULL;
 	}

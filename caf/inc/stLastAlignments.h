@@ -11,7 +11,7 @@
 #include "cactus.h"
 #include "sonLib.h"
 
-stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, const char *lastArgs,
+stList *stCaf_selfAlignFlower(Flower *flower, int64_t minimumSequenceLength, const char *lastdbArgs, const char *lastalArgs,
         bool realign, const char *realignArgs,
         char *tempFile1);
 

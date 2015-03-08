@@ -23,7 +23,8 @@ static void usage() {
     fprintf(stderr, "-a --logLevel : Set the log level\n");
     fprintf(stderr, "-b --alignments : The input alignments file\n");
     fprintf(stderr, "-c --cactusDisk : The location of the flower disk directory\n");
-    fprintf(stderr, "-d --lastArguments : LAST arguments\n");
+    fprintf(stderr, "-d --lastdbArguments : lastdb arguments\n");
+    fprintf(stderr, "-d --lastalArguments : lastal arguments\n");
     fprintf(stderr, "-h --help : Print this help screen\n");
 
     fprintf(stderr, "-i --annealingRounds (array of ints, each greater than or equal to 1) : The rounds of annealing\n");
@@ -222,7 +223,8 @@ int main(int argc, char *argv[]) {
     char * alignmentsFile = NULL;
     char * constraintsFile = NULL;
     char * cactusDiskDatabaseString = NULL;
-    char * lastArguments = "";
+    char * lastdbArguments = "";
+    char * lastalArguments = "";
     int64_t minimumSequenceLengthForBlast = 1;
 
     //Parameters for annealing/melting rounds
@@ -270,7 +272,8 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         static struct option long_options[] = { { "logLevel", required_argument, 0, 'a' }, { "alignments", required_argument, 0, 'b' }, {
-                "cactusDisk", required_argument, 0, 'c' }, { "lastArguments", required_argument, 0, 'd' },
+                "cactusDisk", required_argument, 0, 'c' }, { "lastdbArguments", required_argument, 0, 'd' },
+		{"lastalArguments", required_argument, 0, 'e'},
                 { "help", no_argument, 0, 'h' }, { "annealingRounds", required_argument, 0, 'i' }, { "trim", required_argument, 0, 'k' }, {
                         "trimChange", required_argument, 0, 'l', }, { "minimumTreeCoverage", required_argument, 0, 'm' }, { "blockTrim",
                         required_argument, 0, 'n' }, { "deannealingRounds", required_argument, 0, 'o' }, { "minimumDegree",
@@ -301,7 +304,7 @@ int main(int argc, char *argv[]) {
 
         int option_index = 0;
 
-        key = getopt_long(argc, argv, "a:b:c:hi:k:m:n:o:p:q:r:stv:w:x:y:z:A:BC:D:E:F:G:HI:J:K:LM:N:O:P:Q:R:", long_options, &option_index);
+        key = getopt_long(argc, argv, "a:b:c:d:e:hi:k:m:n:o:p:q:r:stv:w:x:y:z:A:BC:D:E:F:G:HI:J:K:LM:N:O:P:Q:R:", long_options, &option_index);
 
         if (key == -1) {
             break;
@@ -319,8 +322,11 @@ int main(int argc, char *argv[]) {
                 cactusDiskDatabaseString = stString_copy(optarg);
                 break;
             case 'd':
-                lastArguments = stString_copy(optarg);
+                lastdbArguments = stString_copy(optarg);
                 break;
+			case 'e':
+				lastalArguments = stString_copy(optarg);
+				break;
             case 'h':
                 usage();
                 return 0;
@@ -579,7 +585,7 @@ int main(int argc, char *argv[]) {
                 if (tempFile1 == NULL) {
                     tempFile1 = getTempFile();
                 }
-                alignmentsList = stCaf_selfAlignFlower(flower, minimumSequenceLengthForBlast, lastArguments, realign, realignArguments, tempFile1);
+                alignmentsList = stCaf_selfAlignFlower(flower, minimumSequenceLengthForBlast, lastdbArguments, lastalArguments, realign, realignArguments, tempFile1);
                 if (sortAlignments) {
                     stCaf_sortCigarsByScoreInDescendingOrder(alignmentsList);
                 }
@@ -729,9 +735,12 @@ int main(int argc, char *argv[]) {
     if (logLevelString != NULL) {
         free(logLevelString);
     }
-    if (lastArguments != NULL) {
-        free(lastArguments);
+    if (lastdbArguments != NULL) {
+        free(lastdbArguments);
     }
+	if(lastalArguments != NULL) {
+		free(lastalArguments);
+	}
     st_logInfo("Cleaned stuff up and am finished in: %" PRIi64 " seconds\n", time(NULL) - startTime);
 
     //while(1);

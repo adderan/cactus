@@ -117,14 +117,21 @@
 	        >
 		<!-- Arguments for LAST-->
 		<divergence 
-			argName="lastArguments"
+			argName="lastdbArguments"
+			default=""
+		/>
+		<!--
 		 	one=""
 		 	two=""
 		 	three=""
 		 	four=""
-		 	five=""
+			five=""
 		 	default=""
-		 />
+		-->
+		<lastaldivergence
+			argName="lastalArguments"
+			default=""
+		/>
 		<CactusCafRecursion maxFlowerGroupSize="100000000"/>
 		<CactusCafWrapper minFlowerSize="1" maxFlowerGroupSize="25000000"/>
 		<CactusCafWrapperLarge2 overlargeMemory="bigMemory"/>
