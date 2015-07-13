@@ -532,11 +532,12 @@ def __scrapePids(keywordList = []):
 # otherwise return primary hostname
 ###############################################################################
 def __getHostName():
-    hostName = socket.gethostname()
-    hostIp = socket.gethostbyname(hostName)
-    if hostIp.find("127.") != 0:
-        return hostIp
-    return hostName
+    #hostName = socket.gethostname()
+    #hostIp = socket.gethostbyname(hostName)
+    #if hostIp.find("127.") != 0:
+    #    return hostIp
+    #return hostName
+    return "127.0.0.1"
 
 def main():
     try:
