@@ -23,7 +23,7 @@ from cactus.shared.common import runCactusWorkflow
 
 from cactus.shared.test import getCactusWorkflowExperimentForTest
 
-from jobTree.src.common import runJobTreeStatusAndFailIfNotComplete
+from toil.src.toil.common import runToilStatusAndFailIfNotComplete
 
 """Tests cactus_bar. Requires the installation of cactusTools and mafTools.
 """
@@ -82,13 +82,13 @@ class TestCase(unittest.TestCase):
             experiment.writeXML(experimentFile)
             cactusDiskDatabaseString = experiment.getDiskDatabaseString()
             
-            jobTree = os.path.join(testDir, "jobTree")
+            toil = os.path.join(testDir, "toil")
             
-            runCactusWorkflow(experimentFile, jobTree)
+            runCactusWorkflow(experimentFile, toil)
             logger.info("Ran the the workflow")
             
             #Check the output alignment
-            runJobTreeStatusAndFailIfNotComplete(jobTree)
+            runToilStatusAndFailIfNotComplete(toil)
             logger.info("Checked the job tree dir")
             
             #Output the 'TRUE' alignment file

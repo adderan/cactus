@@ -20,7 +20,7 @@ maxRecordSize=100
 keysPerJob=10001
 totalJobs=30
 
-jobTree=${tempDir}/jobTree
+toil=${tempDir}/toil
 log = ${tempDir}/log.txt
 databaseDir=${tempDir}/testDb
 
@@ -34,9 +34,9 @@ clean :
 
 test :
 	ktserver -log ${log} -host ${host} -port ${port} ${databaseOptions} &
-	rm -rf ${databaseDir} ${jobTree}
-	python dbTestScript.py --maxThreads=${maxThreads} --parasolCommand="${parasolCommand}" --batchSystem ${batchSystem} --logLevel DEBUG --jobTree ${jobTree} --stats --keysPerJob ${keysPerJob} --totalJobs ${totalJobs} --host ${host} --port ${port} --databaseDir ${databaseDir} --databaseOption "${databaseOptions}" --minRecordSize ${minRecordSize} --maxRecordSize ${maxRecordSize}
-	jobTreeStats --jobTree ${jobTree} --outputFile ./jobTreeStatsTest.xml
+	rm -rf ${databaseDir} ${toil}
+	python dbTestScript.py --maxThreads=${maxThreads} --parasolCommand="${parasolCommand}" --batchSystem ${batchSystem} --logLevel DEBUG --toil ${toil} --stats --keysPerJob ${keysPerJob} --totalJobs ${totalJobs} --host ${host} --port ${port} --databaseDir ${databaseDir} --databaseOption "${databaseOptions}" --minRecordSize ${minRecordSize} --maxRecordSize ${maxRecordSize}
+	toilStats --toil ${toil} --outputFile ./toilStatsTest.xml
 	ktremotemgr report -host ${host} -port ${port}
-	rm -rf ${databaseDir} ${jobTree} ${log}
+	rm -rf ${databaseDir} ${toil} ${log}
 	ps ax | grep 'ktserver' | cut -f1 -d' ' | xargs kill

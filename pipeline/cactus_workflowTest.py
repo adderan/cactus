@@ -44,14 +44,14 @@ class TestCase(unittest.TestCase):
                                      testNumber=5,
                                      testRestrictions=(TestStatus.TEST_SHORT,),
                                      buildAvgs=True, buildReference=True,
-                                     batchSystem=self.batchSystem, buildJobTreeStats=True)
+                                     batchSystem=self.batchSystem, buildToilStats=True)
         
     def testCactus_randomWithConstraints(self):
         runWorkflow_multipleExamples(getCactusInputs_randomWithConstraints, 
                                      testNumber=5,
                                      testRestrictions=(TestStatus.TEST_SHORT,),
                                      buildAvgs=True, buildReference=True,
-                                     batchSystem=self.batchSystem, buildJobTreeStats=True,
+                                     batchSystem=self.batchSystem, buildToilStats=True,
                                      useConstraints=True)
         
     def testCactus_blanchette(self):
@@ -59,19 +59,19 @@ class TestCase(unittest.TestCase):
                                      testNumber=1,
                                      testRestrictions=(TestStatus.TEST_MEDIUM,),
                                      buildAvgs=True, buildReference=True,
-                                     batchSystem=self.batchSystem, buildJobTreeStats=True)
+                                     batchSystem=self.batchSystem, buildToilStats=True)
                 
     def testCactus_encode(self): 
         runWorkflow_multipleExamples(getCactusInputs_encode, 
                                      testNumber=1,
                                      testRestrictions=(TestStatus.TEST_LONG,),
                                      buildAvgs=True, buildReference=True,
-                                     batchSystem=self.batchSystem, buildJobTreeStats=True)
+                                     batchSystem=self.batchSystem, buildToilStats=True)
     
     def testCactus_chromosomes(self):
         runWorkflow_multipleExamples(getCactusInputs_chromosomeX, 
                                      testRestrictions=(TestStatus.TEST_VERY_LONG,),
-                                     batchSystem=self.batchSystem, buildJobTreeStats=True)
+                                     batchSystem=self.batchSystem, buildToilStats=True)
         
     def testGetOptionalAttrib(self):
         self.assertEquals("0", getOptionalAttrib(self.barNode, "minimumBlockDegree"))

@@ -25,15 +25,14 @@ from sonLib.bioio import getTempFile
 from sonLib.bioio import printBinaryTree
 from sonLib.bioio import system
 
-from jobTree.src.bioio import getLogLevelString
-from jobTree.src.bioio import logger
-from jobTree.src.bioio import setLoggingFromOptions
+from toil.lib.bioio import getLogLevelString
+from toil.lib.bioio import logger
+from toil.lib.bioio import setLoggingFromOptions
 
 from cactus.shared.common import cactusRootPath
 from cactus.shared.common import getOptionalAttrib
   
-from jobTree.scriptTree.target import Target 
-from jobTree.scriptTree.stack import Stack 
+from toil.src.toil.job import Job
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 from cactus.pipeline.cactus_workflow import CactusWorkflowArguments
@@ -48,9 +47,9 @@ from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.shared.configWrapper import ConfigWrapper
 from cactus.progressive.schedule import Schedule
         
-class ProgressiveDown(Target):
+class ProgressiveDown(Job):
     def __init__(self, options, project, event, schedule):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
@@ -62,16 +61,16 @@ class ProgressiveDown(Target):
         if not self.options.nonRecursive:
             deps = self.schedule.deps(self.event)
             for child in deps:
-                self.addChildTarget(ProgressiveDown(self.options,
+                self.addChild(ProgressiveDown(self.options,
                                                     self.project, child, 
                                                     self.schedule))
         
-        self.setFollowOnTarget(ProgressiveNext(self.options, self.project, self.event,
+        self.addFollowOn(ProgressiveNext(self.options, self.project, self.event,
                                                self.schedule))
 
-class ProgressiveNext(Target):
+class ProgressiveNext(Job):
     def __init__(self, options, project, event, schedule):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
@@ -81,15 +80,15 @@ class ProgressiveNext(Target):
         logger.info("Progressive Next: " + self.event)
 
         if not self.schedule.isVirtual(self.event):
-            self.addChildTarget(ProgressiveUp(self.options, self.project, self.event))
+            self.addChild(ProgressiveUp(self.options, self.project, self.event))
         followOnEvent = self.schedule.followOn(self.event)
         if followOnEvent is not None:
-            self.addChildTarget(ProgressiveDown(self.options, self.project, followOnEvent,
+            self.addChild(ProgressiveDown(self.options, self.project, followOnEvent,
                                                 self.schedule))
     
-class ProgressiveUp(Target):
+class ProgressiveUp(Job):
     def __init__(self, options, project, event):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
@@ -159,17 +158,17 @@ class ProgressiveUp(Target):
 
             if workFlowArgs.configWrapper.getDoTrimStrategy() and workFlowArgs.outgroupEventNames is not None:
                 # Use the trimming strategy to blast ingroups vs outgroups.
-                self.addChildTarget(CactusTrimmingBlastPhase(cactusWorkflowArguments=workFlowArgs, phaseName="trimBlast"))
+                self.addChild(CactusTrimmingBlastPhase(cactusWorkflowArguments=workFlowArgs, phaseName="trimBlast"))
             else:
-                self.addChildTarget(CactusSetupPhase(cactusWorkflowArguments=workFlowArgs,
+                self.addChild(CactusSetupPhase(cactusWorkflowArguments=workFlowArgs,
                                                      phaseName="setup"))
         logger.info("Going to create alignments and define the cactus tree")
 
-        self.setFollowOnTarget(FinishUp(workFlowArgs, self.project))
+        self.addFollowOn(FinishUp(workFlowArgs, self.project))
                                
-class FinishUp(Target):
+class FinishUp(Job):
     def __init__(self, workFlowArgs, project,):
-        Target.__init__(self)
+        Job.__init__(self)
         self.workFlowArgs = workFlowArgs
         self.project = project
     
@@ -179,9 +178,9 @@ class FinishUp(Target):
         doneFile.write("")
         doneFile.close()
 
-class RunCactusPreprocessorThenProgressiveDown(Target):
+class RunCactusPreprocessorThenProgressiveDown(Job):
     def __init__(self, options, args):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.args = args
         
@@ -193,7 +192,7 @@ class RunCactusPreprocessorThenProgressiveDown(Target):
         configNode = ET.parse(project.getConfigPath()).getroot()
         ConfigWrapper(configNode).substituteAllPredefinedConstantsWithLiterals() #This is necessary..
         #Create the preprocessor
-        self.addChildTarget(CactusPreprocessor(project.getInputSequencePaths(), 
+        self.addChild(CactusPreprocessor(project.getInputSequencePaths(), 
                                                CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir()),
                                                configNode))
         #Now build the progressive-down target
@@ -205,13 +204,13 @@ class RunCactusPreprocessorThenProgressiveDown(Target):
         assert self.options.event in project.expMap
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)
-        self.setFollowOnTarget(ProgressiveDown(self.options, project, self.options.event, schedule))
+        self.addFollowOn(ProgressiveDown(self.options, project, self.options.event, schedule))
 
 def main():
     usage = "usage: %prog [options] <multicactus project>"
     description = "Progressive version of cactus_workflow"
     parser = OptionParser(usage=usage, description=description)
-    Stack.addJobTreeOptions(parser)
+    Stack.addToilOptions(parser)
     addCactusWorkflowOptions(parser)
     
     parser.add_option("--nonRecursive", dest="nonRecursive", action="store_true",
@@ -232,7 +231,7 @@ def main():
         parser.print_help()
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
 
-    Stack(RunCactusPreprocessorThenProgressiveDown(options, args)).startJobTree(options)
+    Job.Runner().startToil(RunCactusPreprocessorThenProgressiveDown(options, args), options)
 
 if __name__ == '__main__':
     from cactus.progressive.cactus_progressive import *

@@ -24,7 +24,7 @@ class TestCase(PreprocessorTestCase):
         fileHandle.write(ET.tostring(rootElem))
         fileHandle.close()
         #Run preprocessor
-        command = "cactus_preprocessor.py %s %s %s --jobTree %s" % (self.tempDir, configFile, " ".join(sequenceFiles), os.path.join(self.tempDir, "jobTree"))
+        command = "cactus_preprocessor.py %s %s %s --toil %s" % (self.tempDir, configFile, " ".join(sequenceFiles), os.path.join(self.tempDir, "toil"))
         system(command)
         for sequenceFile, processedSequenceFile in zip(sequenceFiles, CactusPreprocessor.getOutputSequenceFiles(sequenceFiles, self.tempDir)):
             #Parse sequences into dictionary

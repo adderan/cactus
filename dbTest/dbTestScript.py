@@ -4,10 +4,9 @@
 """
 
 from optparse import OptionParser
-from jobTree.scriptTree.target import Target 
-from jobTree.scriptTree.stack import Stack
+from toil.src.toil.job import Job
 from sonLib.bioio import system, spawnDaemon, setLoggingFromOptions, logger, getLogLevelString
-from jobTree.src.common import runJobTreeStatusAndFailIfNotComplete
+from toil.src.toil.common import runToilStatusAndFailIfNotComplete
 
 def getDatabaseConf(options):
     return "<st_kv_database_conf type=\"kyoto_tycoon\"><kyoto_tycoon host=\"%s\" port=\"%s\" database_dir=\"%s\"/></<st_kv_database_conf>" % \
@@ -24,21 +23,21 @@ def runDbTestScript(options, firstKey=0, keyNumber=0, addRecords=False, setRecor
     (getDatabaseConf(options), firstKey, keyNumber, addRecords, setRecords, options.minRecordSize, options.maxRecordSize, getLogLevelString())
     system(command)
 
-class AddKeysPhase(Target):
+class AddKeysPhase(Job):
     def __init__(self, options):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
     
     def run(self):
         keyIndex = 0
         for jobIndex in xrange(int(self.options.totalJobs)):
-            self.addChildTarget(AddKeys(self.options, keyIndex))
+            self.addChild(AddKeys(self.options, keyIndex))
             keyIndex += int(self.options.keysPerJob)
-        self.setFollowOnTarget(SetKeysPhase(self.options))
+        self.addFollowOn(SetKeysPhase(self.options))
     
-class AddKeys(Target):
+class AddKeys(Job):
     def __init__(self, options, firstKey):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.firstKey = firstKey
         
@@ -49,7 +48,7 @@ class SetKeysPhase(AddKeysPhase):
     def run(self):
         keyIndex = 0
         for jobIndex in xrange(int(self.options.totalJobs)):
-            self.addChildTarget(SetKeys(self.options, keyIndex))
+            self.addChild(SetKeys(self.options, keyIndex))
             keyIndex += int(self.options.keysPerJob)
 
 class SetKeys(AddKeys):
@@ -74,7 +73,7 @@ def main():
     parser.add_option("--test", dest="test", action="store_true",
                       help="Run doctest unit tests")
     
-    Stack.addJobTreeOptions(parser)
+    Job.Runner.addToilOptions(parser)
 
     options, args = parser.parse_args()
     if options.test:
@@ -84,7 +83,7 @@ def main():
     if len(args) != 0:
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
     
-    Stack(AddKeysPhase(options)).startJobTree(options)
+    Job.Runner().startToil(AddKeysPhase(options), options)
 
 def _test():
     import doctest      
