@@ -46,7 +46,7 @@ from cactus.pipeline.ktserverControl import killKtServer
 from cactus.pipeline.ktserverControl import getKtServerReport
 
 ###############################################################################
-# Launch childTargetClosure (which is a JobtreeTarget with bound parameters)
+# Launch childTargetClosure (which is a Toil Job with bound parameters)
 # as a child of rootTarget, using the ktserver launch pattern described
 # above to make sure that a ktserver is running somewhere for the lifespan
 # of childTargetClosure using the pattern described above.
@@ -73,13 +73,14 @@ from cactus.pipeline.ktserverControl import getKtServerReport
 # runTimestep : polling interval for above
 # killTimeout : amount of time to wait for server to die after deleting
 #               the kill switch file before throwing an error
+# killSwitchFileID : ID for the kill switch file in the Toil FileStore
 ###############################################################################
 def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
                               isSecondary = False,
                               createTimeout = 30, loadTimeout = 10000,
                               blockTimeout=sys.maxint, blockTimestep=10,
                               runTimeout=sys.maxint, runTimestep=10,
-                              killTimeout=10000):
+                              killTimeout=10000, killSwitchFileID):
     from cactus.pipeline.cactus_workflow import CactusPhasesJob
     from cactus.pipeline.cactus_workflow import CactusRecursionJob
     
@@ -87,12 +88,7 @@ def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
 
     if killTimeout < runTimestep * 2:
         killTimeout = runTimestep * 2
-    killSwitchPath = getTempFile(suffix="_kill.txt",
-                                 rootDir=rootJob.getGlobalTempDir())
-    killSwitchFile = open(killSwitchPath, "w")
-    killSwitchFile.write("init")
-    killSwitchFile.close()
-
+    
     if isSecondary == False:
         assert isinstance(newChild, CactusPhasesJob)
         wfArgs = newChild.cactusWorkflowArguments
@@ -105,11 +101,11 @@ def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
         dbElem = DbElemWrapper(confXML)
     
     rootJob.addChild(
-        KtserverJobLauncher(dbElem, killSwitchPath, maxMemory,
+        KtserverJobLauncher(dbElem, killSwitchFileID, maxMemory,
                                maxCpu, createTimeout,
                                loadTimeout, runTimeout, runTimestep))
     rootJob.addChild(
-        KtserverJobBlocker(killSwitchPath, newChild, isSecondary,
+        KtserverJobBlocker(killSwitchFileID, newChild, isSecondary,
                                 blockTimeout, blockTimestep, killTimeout))
 
 
@@ -117,26 +113,28 @@ def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
 # Launch the server on whatever node runs this target
 ###############################################################################
 class KtserverJobLauncher(Job):
-    def __init__(self, dbElem, killSwitchPath,
+    def __init__(self, dbElem, killSwitchFileID,
                  maxMemory, maxCpu, createTimeout,
                  loadTimeout, runTimeout, runTimestep):
         Job.__init__(self, memory=maxMemory, cpu=maxCpu)
         self.dbElem = dbElem
-        self.killSwitchPath = killSwitchPath
+        self.killSwitchFileID = killSwitchFileID
         self.createTimeout = createTimeout
         self.loadTimeout = loadTimeout
         self.runTimeout = runTimeout
         self.runTimestep = runTimestep
         
-    def run(self):
+    def run(self, fileStore):
         self.logToMaster("Launching ktserver %s with killPath %s" % (
-            ET.tostring(self.dbElem.getDbElem()), self.killSwitchPath))
-        runKtserver(self.dbElem, self.killSwitchPath,
+            ET.tostring(self.dbElem.getDbElem()), self.killSwitchFileID))
+        killSwitchPath = fileStore.readGlobalFile(killSwitchFileID)
+        runKtserver(self.dbElem, killSwitchPath,
                     maxPortsToTry=100, readOnly = False,
                     createTimeout=self.createTimeout,
                     loadTimeout=self.loadTimeout,
                     killTimeout=self.runTimeout,
                     killPingInterval=self.runTimestep)
+        fileStore.updateGlobalFile(self.killSwitchFileID, killSwitchPath)
 
 ###############################################################################
 # Block until the server's detected.
@@ -146,7 +144,7 @@ class KtserverJobBlocker(Job):
     def __init__(self, killSwitchPath, newChild, isSecondary,
                  blockTimeout, blockTimestep, killTimeout):
         Job.__init__(self)
-        self.killSwitchPath = killSwitchPath
+        self.killSwitchFileID = killSwitchFileID
         self.newChild = newChild
         self.isSecondary = isSecondary
         self.blockTimeout = blockTimeout
@@ -165,10 +163,10 @@ class KtserverJobBlocker(Job):
             confXML = ET.fromstring(dbString)
             dbElem = DbElemWrapper(confXML)
 
-        self.logToMaster("Blocking on ktserver %s with killPath %s" % (
-            ET.tostring(dbElem.getDbElem()), self.killSwitchPath))
+        self.logToMaster("Blocking on ktserver %s with killSwitchFileID %s" % (
+            ET.tostring(dbElem.getDbElem()), self.killSwitchFileID))
             
-        blockUntilKtserverIsRunnning(dbElem, self.killSwitchPath,
+        blockUntilKtserverIsRunnning(dbElem, self.killSwitchFileID,
                                      self.blockTimeout, self.blockTimestep)
 
         if self.isSecondary == False:
@@ -186,24 +184,24 @@ class KtserverJobBlocker(Job):
         
         self.addChild(self.newChild)
         self.addFollowOn(KtserverJobKiller(dbElem,
-                                                    self.killSwitchPath,
+                                                    self.killSwitchFileID,
                                                     self.killTimeout))
 
 ###############################################################################
 # Kill the server by deleting its kill switch file
 ###############################################################################
 class KtserverJobKiller(Job):
-    def __init__(self, dbElem, killSwitchPath, killTimeout):
+    def __init__(self, dbElem, killSwitchFileID, killTimeout):
         Job.__init__(self)
         self.dbElem = dbElem
-        self.killSwitchPath = killSwitchPath
+        self.killSwitchFileID = killSwitchFileID
         self.killTimeout = killTimeout
         
-    def run(self):
-        self.logToMaster("Killing ktserver %s with killPath %s" % (
-            ET.tostring(self.dbElem.getDbElem()), self.killSwitchPath))
+    def run(self, fileStore):
+        self.logToMaster("Killing ktserver %s with killSwitchFileID %s" % (
+            ET.tostring(self.dbElem.getDbElem()), self.killSwitchFileID))
         report = getKtServerReport(self.dbElem)
         self.logToMaster(report)
-        killKtServer(self.dbElem, self.killSwitchPath,
-                     killTimeout=self.killTimeout)
+        killKtServer(self.dbElem, killSwitchFileID,
+                     killTimeout=self.killTimeout, fileStore)
     
