@@ -309,34 +309,42 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
     """Blast ingroups vs outgroups using the trimming strategy before
     running cactus setup.
     """
-    def run(self):
+    def run(self, fileStore):
         # Not worth doing extra work if there aren't any outgroups
         assert self.cactusWorkflowArguments.outgroupEventNames is not None
 
         self.logToMaster("Running blast using the trimming strategy")
 
-        outgroupsDir = os.path.join(self.getGlobalTempDir(), "outgroupFragments/")
-        os.mkdir(outgroupsDir)
-
         # Get ingroup and outgroup sequences
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         seqMap = exp.buildSequenceMap()
         # Prepend unique ID to fasta headers to prevent name collision
-        renamedInputSeqDir = os.path.join(self.getGlobalTempDir(), "renamedInputs")
+        renamedInputSeqDir = os.path.join(fileStore.getLocalTempDir(), "renamedInputs")
         os.mkdir(renamedInputSeqDir)
-        uniqueFas = prependUniqueIDs(seqMap.values(), renamedInputSeqDir)
-        seqMap = dict(zip(seqMap.keys(), uniqueFas))
-        ingroups = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqMap.items()))
-        outgroups = [seqMap[i] for i in exp.getOutgroupEvents()]
-        self.logToMaster("Ingroup sequences: %s" % (ingroups))
-        self.logToMaster("Outgroup sequences: %s" % (outgroups))
+        
+        #convert the Filestore ID's for the sequences into local paths
+        sequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in seqMap.values()]
+
+        uniqueFas = prependUniqueIDs(sequenceFiles, renamedInputSeqDir)
+        #write the unique fasta files back to the global Filestore
+        uniqueFaIDs = [fileStore.writeGlobalFile(fa) for fa in uniqueFas]
+
+        seqMap = dict(zip(seqMap.keys(), uniqueFaIDs))
+        ingroupIDs = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqMap.items()))
+        outgroupIDs = [seqMap[i] for i in exp.getOutgroupEvents()]
+        self.logToMaster("Ingroup sequences: %s" % (ingroupIDs))
+        self.logToMaster("Outgroup sequences: %s" % (outgroupIDs))
 
         # Change the blast arguments depending on the divergence
         setupDivergenceArgs(self.cactusWorkflowArguments)
         setupFilteringByIdentity(self.cactusWorkflowArguments)
 
-        alignmentsFile = getTempFile("unconvertedAlignments", rootDir=self.getGlobalTempDir())
-        findRequiredNode(self.cactusWorkflowArguments.configNode, "caf").attrib["alignments"] = alignmentsFile
+        #alignmentsFile = getTempFile("unconvertedAlignments",
+        alignmentsFileID = fileStore.getEmptyFileStoreID()
+        outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in range(len(outgroupIDs))]
+        outgroupFragmentMap = dict(zip(outgroupIDs, outgroupFragmentIDs))
+
+        findRequiredNode(self.cactusWorkflowArguments.configNode, "caf").attrib["alignments"] = alignmentsFileID
         # FIXME: this is really ugly and steals the options from the caf tag
         self.addChild(BlastIngroupsAndOutgroups(
                                           BlastOptions(chunkSize=getOptionalAttrib(findRequiredNode(self.cactusWorkflowArguments.configNode, "caf"), "chunkSize", int),
@@ -355,8 +363,9 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         # Point the outgroup sequences to their trimmed versions for
         # phases after this one.
         for outgroup in exp.getOutgroupEvents():
-            oldPath = seqMap[outgroup]
-            seqMap[outgroup] = os.path.join(outgroupsDir, os.path.basename(oldPath))
+            oldID = seqMap[outgroup]
+            #update the ID of this outgroup to the ID of its corresponding fragment
+            seqMap[outgroup] = outgroupFragmentMap[oldID]
         exp.updateTree(exp.getTree(), seqMap)
 
         self.makeFollowOnPhaseJob(CactusSetupPhase, "setup")
@@ -440,25 +449,28 @@ def inverseJukesCantor(d):
     return 0.75 * (1 - math.exp(-d * 4.0/3.0))
     
 class CactusCafPhase(CactusPhasesJob):      
-    def run(self):
+    def run(self, fileStore):
         if (not self.cactusWorkflowArguments.configWrapper.getDoTrimStrategy()) or (self.cactusWorkflowArguments.outgroupEventNames == None):
             setupFilteringByIdentity(self.cactusWorkflowArguments)
         #Setup any constraints
         if self.getPhaseIndex() == 0 and self.cactusWorkflowArguments.constraintsFile != None: #Setup the constraints arg
-            newConstraintsFile = os.path.join(self.getGlobalTempDir(), "constraints.cig")
+            newConstraintsFile = os.path.join(fileStore.getLocalTempDir(), "constraints.cig")
+            constraintsFile = fileStore.readGlobalFile(self.cactusWorkflowArguments.constraingsFile)
             runCactusConvertAlignmentToCactus(self.cactusWorkflowArguments.cactusDiskDatabaseString,
-                                              self.cactusWorkflowArguments.constraintsFile, newConstraintsFile)
-            self.phaseNode.attrib["constraints"] = newConstraintsFile  
+                                              constraintsFile, newConstraintsFile)
+            newConstraintsFileID = fileStore.writeGlobalFile(newConstraintsFile)
+            self.phaseNode.attrib["constraints"] = newConstraintsFileID
         if self.getOptionalPhaseAttrib("alignments", default="") != "":
             # An alignment file has been provided (likely from the
             # ingroup vs. outgroup blast stage), so just run caf using
             # that file
             assert self.getPhaseNumber() == 1
-            convertedAlignmentsFile = getTempFile(rootDir=self.getGlobalTempDir())
+            alignmentsFile = fileStore.readGlobalFile(self.phaseNode.attrib["alignments"])
+            convertedAlignmentsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
             # Convert the cigar file to use 64-bit cactus Names instead of the headers.
-            runConvertAlignmentsToInternalNames(self.cactusWorkflowArguments.cactusDiskDatabaseString, self.phaseNode.attrib["alignments"], convertedAlignmentsFile, self.topFlowerName)
+            runConvertAlignmentsToInternalNames(self.cactusWorkflowArguments.cactusDiskDatabaseString, alignmentsFile, convertedAlignmentsFile, self.topFlowerName)
             self.logToMaster("Converted headers of cigar file %s to internal names, new file %s" % (self.phaseNode.attrib["alignments"], convertedAlignmentsFile))
-            self.phaseNode.attrib["alignments"] = convertedAlignmentsFile
+            fileStore.updateGlobalFile(self.phaseNode.attrib, convertedAlignmentsFile)
             # While we're at it, remove the unique IDs prepended to
             # the headers inside the cactus DB.
             runStripUniqueIDs(self.cactusWorkflowArguments.cactusDiskDatabaseString)
