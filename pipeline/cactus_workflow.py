@@ -612,32 +612,37 @@ class CactusBarWrapperLarge(CactusRecursionJob):
         veryLargeEndSize=self.getOptionalPhaseAttrib("veryLargeEndSize", int, default=1000000)
         maxFlowerGroupSize = self.getOptionalJobAttrib("maxFlowerGroupSize", int, 
                                             default=CactusRecursionJob.maxSequenceSizeOfFlowerGroupingDefault)
-        endsToAlign = []
+        endsToAlignID = []
         totalSize = 0
         alignmentFileCount = 0
+        endAlignmentFileIDs = []
         for line in runBarForJob(self, calculateWhichEndsToComputeSeparately=True):
-            endToAlign, sequencesInEndAlignment, basesInEndAlignment = line.split()
+            endToAlignID, sequencesInEndAlignment, basesInEndAlignment = line.split()
             sequencesInEndAlignment = int(sequencesInEndAlignment)
             basesInEndAlignment = int(basesInEndAlignment)
             #If we have a really big end align separately
             if basesInEndAlignment >= veryLargeEndSize:
+                endAlignmentFileID = fileStore.getEmptyFileStoreID()
+                endAlignmentFileIDs.append(endAlignmentFileID)
                 self.addChild(CactusBarEndAlignerWrapper(self.phaseNode, self.constantsNode, self.cactusDiskDatabaseString, self.flowerNames, 
-                                                           True, [ endToAlign ], os.path.join(self.getGlobalTempDir(), "endAlignments.%i" % alignmentFileCount)))
+                                                           True, [ endToAlignID ], endAlignmentFileID))
                 self.logToMaster("Precomputing very large end alignment for %s with %i caps and %i bases" % \
-                             (endToAlign, sequencesInEndAlignment, basesInEndAlignment))
+                             (endToAlignID, sequencesInEndAlignment, basesInEndAlignment))
                 alignmentFileCount += 1
             else:
-                endsToAlign.append(endToAlign)
+                endsToAlignID.append(endToAlignID)
+                endAlignmentFileID = fileStore.getEmptyFileStoreID()
+                endAlignmentFileIDs.append(endAlignmentFileID)
                 totalSize += basesInEndAlignment
                 if totalSize >= maxFlowerGroupSize:
                     self.addChild(CactusBarEndAlignerWrapper(self.phaseNode, self.constantsNode, self.cactusDiskDatabaseString, self.flowerNames, 
-                                                           False, endsToAlign, os.path.join(self.getGlobalTempDir(), "endAlignments.%i" % alignmentFileCount)))
+                                                           False, endsToAlignID, endAlignmentFileID))
                     endsToAlign = []
                     totalSize = 0
                     alignmentFileCount += 1
-        if len(endsToAlign) > 0:
+        if len(endsToAlignID) > 0:
             self.addChild(CactusBarEndAlignerWrapper(self.phaseNode, self.constantsNode, self.cactusDiskDatabaseString, self.flowerNames, 
-                                                           False, endsToAlign, os.path.join(self.getGlobalTempDir(), "endAlignments.%i" % alignmentFileCount)))
+                                                           False, endsToAlignID, os.path.join(self.getGlobalTempDir(), "endAlignments.%i" % alignmentFileCount)))
             alignmentFileCount += 1
         self.phaseNode.attrib["precomputedAlignmentFiles"] = " ".join([ os.path.join(self.getGlobalTempDir(), ("endAlignments.%i") % i) for i in range(alignmentFileCount) ]) 
         self.makeFollowOnRecursiveJob(CactusBarWrapperWithPrecomputedEndAlignments)
