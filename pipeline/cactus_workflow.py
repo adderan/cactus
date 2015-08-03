@@ -143,7 +143,7 @@ class CactusPhasesJob(CactusJob):
                     self.constantsNode, "defaultMemory", int, default=sys.maxint))
             cpu = cw.getKtserverCpu(default=getOptionalAttrib(
                     self.constantsNode, "defaultCpu", int, default=sys.maxint))
-            addKtserverDependentChild(self, newChild, maxMemory=memory, maxCpu=cpu, isSecondary = True)
+            addKtserverDependentChild(self, fileStore, newChild, maxMemory=memory, maxCpu=cpu, isSecondary = True)
         else:
             self.addChild(newChild)
     
@@ -351,7 +351,7 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
                                                        trimMinSize=self.getOptionalPhaseAttrib("trimMinSize", int, 0),
                                                        trimThreshold=self.getOptionalPhaseAttrib("trimThreshold", float, 0.8),
                                                        trimWindowSize=self.getOptionalPhaseAttrib("trimWindowSize", int, 10),
-                                                       trimOutgroupFlanking=self.getOptionalPhaseAttrib("trimOutgroupFlanking", int, 100)), ingroups, outgroups, alignmentsFile, outgroupsDir))
+                                                       trimOutgroupFlanking=self.getOptionalPhaseAttrib("trimOutgroupFlanking", int, 100)), ingroupIDs, outgroupIDs, alignmentsFileID, outgroupFragmentIDs))
         # Point the outgroup sequences to their trimmed versions for
         # phases after this one.
         for outgroup in exp.getOutgroupEvents():
@@ -383,7 +383,7 @@ def getLongestPath(node, distance=0.0):
 class CactusSetupPhase(CactusPhasesJob):  
     """Initialises the cactus database and adapts the config file for the run.
     """
-    def run(self):
+    def run(self, fileStore):
         cw = ConfigWrapper(self.cactusWorkflowArguments.configNode)
 
         if (not self.cactusWorkflowArguments.configWrapper.getDoTrimStrategy()) or (self.cactusWorkflowArguments.outgroupEventNames == None):
@@ -402,7 +402,7 @@ class CactusSetupPhase(CactusPhasesJob):
                     self.constantsNode, "defaultMemory", int, default=sys.maxint))
             cpu = cw.getKtserverCpu(default=getOptionalAttrib(
                     self.constantsNode, "defaultCpu", int, default=sys.maxint))
-            addKtserverDependentChild(self, setupJob, maxMemory=memory, maxCpu=cpu, isSecondary = False)
+            addKtserverDependentChild(self, fileStore, setupJob, maxMemory=memory, maxCpu=cpu, isSecondary = False)
         else:
             logger.info("Created follow-on job cactus_setup")
             self.addFollowOn(setupJob)   

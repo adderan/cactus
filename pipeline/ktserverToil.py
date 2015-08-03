@@ -53,6 +53,8 @@ from cactus.pipeline.ktserverControl import getKtServerReport
 #
 # rootJob : existing Toil job which will serve as the root
 #              of all compuation (which will be added as children)
+# rootJobFileStore ; the FileStore of the rootJob, which is used
+# to create the kill switch file
 # newChild : the child PhaseJob we wish to execute while the
 #            ktserver is running.  if isSecondary is true then
 #            newChild is a recursion target and not a phase target
@@ -73,7 +75,6 @@ from cactus.pipeline.ktserverControl import getKtServerReport
 # runTimestep : polling interval for above
 # killTimeout : amount of time to wait for server to die after deleting
 #               the kill switch file before throwing an error
-# killSwitchFileID : ID for the kill switch file in the Toil FileStore
 ###############################################################################
 def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
                               isSecondary = False,
@@ -89,6 +90,13 @@ def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
     if killTimeout < runTimestep * 2:
         killTimeout = runTimestep * 2
     
+    killSwitchPath = getTempFile(suffix="_kill.txt",
+                                 rootDir=rootJobFileStore.getLocalTempDir())
+    killSwitchFile = open(killSwitchPath, "w")
+    killSwitchFile.write("init")
+    killSwitchFile.close()
+    killSwitchFileID = rootJobFileStore.writeGlobalFile(killSwitchPath)
+
     if isSecondary == False:
         assert isinstance(newChild, CactusPhasesJob)
         wfArgs = newChild.cactusWorkflowArguments
