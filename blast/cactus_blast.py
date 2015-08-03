@@ -79,6 +79,21 @@ class BlastFlower(Job):
         chunkIDs = [fileStore.writeGlobalFile(path) for path in chunks]
         self.addChild(MakeBlastsAllAgainstAll(self.blastOptions, chunkIDs, self.finalResultsFileID))
         
+class BlastSequencesAllAgainstAllWrapper(Job):
+    """Run BlastSequencesAllAgainstAll on permanent files.
+    """
+    def __init__(self, sequenceFiles, finalResultsFile, blastOptions):
+        Job.__init__(self)
+        self.sequenceFiles = sequenceFiles
+        self.finalResultsFile = finalResultsFile
+        self.blastOptions = blastOptions
+
+    def run(self, fileStore):
+        sequenceFileIDList = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles]
+        finalResultsFileID = fileStore.makeEmptyFileStoreID()
+        self.addChild(BlastSequencesAllAgainstAll(sequenceFileIDList, finalResultsFileID, self.blastOptions))
+        self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
+
 class BlastSequencesAllAgainstAll(Job):
     """Take a set of sequences, chunks them up and blasts them.
     """
@@ -145,6 +160,23 @@ class MakeBlastsAllAgainstAll2(MakeBlastsAllAgainstAll):
             #Set up the job to collate all the results
             self.addFollowOn(CollateBlasts(self.finalResultsFileID, self.resultsFileIDs))
             
+class BlastSequencesAgainstEachOtherWrapper(Job):
+    """Runs BlastSequencesAgainstEachOther on permanent files,
+    rather than files in the Filestore.
+    """
+    def __init__(self, sequenceFiles1, sequenceFiles2, finalResultsFile, blastOptions):
+        Job.__init__(self)
+        self.sequenceFiles1 = sequenceFiles1
+        self.sequenceFiles2 = sequenceFiles2
+        self.finalResultsFile = finalResultsFile
+        self.blastOptions = blastOptions
+
+    def run(self, fileStore):
+        sequenceFileIDList1 = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles1]
+        sequenceFileIDList2 = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles2]
+        finalResultsFileID = fileStore.makeEmptyFileStoreID()
+        self.addChild(BlastSequencesAgainstEachOther(sequenceFileIDList1, sequenceFileIDList2, finalResultsFileID, self.blastOptions))
+        self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
 class BlastSequencesAgainstEachOther(BlastSequencesAllAgainstAll):
     """Take two sets of sequences, chunks them up and blasts one set against the other.
     """
@@ -202,7 +234,8 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
             self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
             for i in range(len(outgroupFragmentIDs)):
                 fragmentID = outgroupFragmentIDs[i]
-                self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(outgroupFragmentsDir, str(i))))
+                outgroupSequenceFilename = self.outgroupSequenceFiles[i]
+                self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(outgroupFragmentsDir, outgroupSequenceFilename)))
 
 
 class BlastIngroupsAndOutgroups(Job):
@@ -223,13 +256,8 @@ class BlastIngroupsAndOutgroups(Job):
         self.outgroupFragmentIDs = outgroupFragmentIDs
 
     def run(self, fileStore):
-        self.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFile))
-        try:
-            os.makedirs(self.outgroupFragmentsDir)
-        except os.error:
-            # Directory already exists
-            pass
-
+        self.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFileID))
+        
         ingroupResultFileID = fileStore.getEmptyFileStoreID()
         outgroupResultFileID = fileStore.getEmptyFileStoreID()
         finalResultsFileID = fileStore.getEmptyFileStoreID()
@@ -598,15 +626,15 @@ replaced with the the sequence file and the results file, respectively",
         raise RuntimeError("--ingroups and --outgroups must be provided "
                            "together")
     if options.ingroups:
-        firstJob = BlastIngroupsAndOutgroups(options,
+        firstJob = BlastIngroupsAndOutgroupsWrapper(options,
                                                 options.ingroups.split(','),
                                                 options.outgroups.split(','),
                                                 options.cigarFile,
                                                 options.outgroupFragmentsDir)
     elif options.targetSequenceFiles == None:
-        firstJob = BlastSequencesAllAgainstAll(args, options.cigarFile, options)
+        firstJob = BlastSequencesAllAgainstAllWrapper(args, options.cigarFile, options)
     else:
-        firstJob = BlastSequencesAgainstEachOther(args, options.targetSequenceFiles.split(), options.cigarFile, options)
+        firstJob = BlastSequencesAgainstEachOtherWrapper(args, options.targetSequenceFiles.split(), options.cigarFile, options)
     Job.Runner().startToil(firstJob, options)
 
 def _test():
