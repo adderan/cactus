@@ -75,11 +75,11 @@ class MergeChunks(Job):
 class PreprocessSequence(Job):
     """Cut a sequence into chunks, process, then merge
     """
-    def __init__(self, prepOptions, inSequencePath, outSequencePath):
+    def __init__(self, prepOptions, inSequenceID, outSequenceID):
         Job.__init__(self, cpu=prepOptions.cpu)
         self.prepOptions = prepOptions 
-        self.inSequencePath = inSequencePath
-        self.outSequencePath = outSequencePath
+        self.inSequenceID = inSequenceID
+        self.outSequenceID = outSequenceID
     
     def run(self):        
         logger.info("Preparing sequence for preprocessing")

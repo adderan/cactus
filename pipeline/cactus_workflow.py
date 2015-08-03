@@ -641,10 +641,12 @@ class CactusBarWrapperLarge(CactusRecursionJob):
                     totalSize = 0
                     alignmentFileCount += 1
         if len(endsToAlignID) > 0:
+            endAlignmentFileID = fileStore.getEmptyFileStoreID()
+            endAlignmentFileIDs.append(endAlignmentFileID)
             self.addChild(CactusBarEndAlignerWrapper(self.phaseNode, self.constantsNode, self.cactusDiskDatabaseString, self.flowerNames, 
-                                                           False, endsToAlignID, os.path.join(self.getGlobalTempDir(), "endAlignments.%i" % alignmentFileCount)))
+                                                           False, endsToAlignID, endAlignmentFileID))
             alignmentFileCount += 1
-        self.phaseNode.attrib["precomputedAlignmentFiles"] = " ".join([ os.path.join(self.getGlobalTempDir(), ("endAlignments.%i") % i) for i in range(alignmentFileCount) ]) 
+        self.phaseNode.attrib["precomputedAlignmentFiles"] = " ".join(endAlignmentFileIDs) 
         self.makeFollowOnRecursiveJob(CactusBarWrapperWithPrecomputedEndAlignments)
         self.logToMaster("Breaking bar job into %i separate jobs" % \
                              (alignmentFileCount))
