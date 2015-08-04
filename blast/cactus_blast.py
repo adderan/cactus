@@ -17,7 +17,7 @@ from sonLib.bioio import makeSubDir
 from sonLib.bioio import catFiles
 from sonLib.bioio import getTempFile
 from sonLib.bioio import nameValue
-from toil.src.toil.job import Job
+from toil.job import Job
 
 class BlastOptions:
     def __init__(self, chunkSize=10000000, overlapSize=10000, 
@@ -89,8 +89,10 @@ class BlastSequencesAllAgainstAllWrapper(Job):
         self.blastOptions = blastOptions
 
     def run(self, fileStore):
+        for sequenceFile in self.sequenceFiles:
+            assert os.path.exists(sequenceFile)
         sequenceFileIDList = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles]
-        finalResultsFileID = fileStore.makeEmptyFileStoreID()
+        finalResultsFileID = fileStore.getEmptyFileStoreID()
         self.addChild(BlastSequencesAllAgainstAll(sequenceFileIDList, finalResultsFileID, self.blastOptions))
         self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
 
@@ -113,6 +115,8 @@ class BlastSequencesAllAgainstAll(Job):
                                                           " ".join(sequenceFiles))).split("\n") if chunk != "" ]
         
     def run(self, fileStore):
+        for fileID in self.sequenceFileIDList1:
+            assert fileStore.globalFileExists(fileID)
         sequenceFiles1 = [fileStore.readGlobalFile(fileID) for fileID in self.sequenceFileIDList1]
         chunks = self.getChunks(sequenceFiles1, makeSubDir(os.path.join(fileStore.getLocalTempDir(), "chunks")))
         chunkIDs = [fileStore.writeGlobalFile(chunk) for chunk in chunks]
@@ -126,16 +130,17 @@ class MakeBlastsAllAgainstAll(Job):
         Job.__init__(self)
         self.blastOptions = blastOptions
         self.chunkIDs = chunkIDs
-        self.finalResultsFile = finalResultsFileID
+        self.finalResultsFileID = finalResultsFileID
         
     def run(self, fileStore):
         #Avoid compression if just one chunk
+        assert 1 == 0 
         self.blastOptions.compressFiles = self.blastOptions.compressFiles and len(self.chunkIDs) > 2
-        selfResultsDir = fileStore.getLocalTempDir()
         resultsFileIDs = []
-        for i in xrange(len(self.chunks)):
-            resultsFile = os.path.join(selfResultsDir, str(i))
-            resultsFileID = fileStore.writeGlobalFile(resultsFile)
+        for i in xrange(len(self.chunkIDs)):
+            #resultsFile = os.path.join(selfResultsDir, str(i))
+            #resultsFileID = fileStore.writeGlobalFile(resultsFile)
+            resultsFileID = fileStore.getEmptyFileStoreID()
             resultsFileIDs.append(resultsFileID)
             self.addChild(RunSelfBlast(self.blastOptions, self.chunkIDs[i], resultsFileID))
         logger.info("Made the list of self blasts")
@@ -147,13 +152,13 @@ class MakeBlastsAllAgainstAll2(MakeBlastsAllAgainstAll):
             MakeBlastsAllAgainstAll.__init__(self, blastOptions, chunks, finalResultsFileID)
             self.resultsFileIDs = resultsFileIDs
            
-        def run(self):
+        def run(self, fileStore):
+            assert 1 == 0
             tempFileTree = TempFileTree(os.path.join(fileStore.getLocalTempDir(), "allAgainstAllResults"))
             #Make the list of blast jobs.
             for i in xrange(0, len(self.chunkIDs)):
                 for j in xrange(i+1, len(self.chunks)):
-                    resultsFile = tempFileTree.getTempFile()
-                    resultsFileID = fileStore.writeGlobalTempFile(resultsFile)
+                    resultsFileID = fileStore.getEmptyFileStoreID()
                     self.resultsFileIDs.append(resultsFileID)
                     self.addChild(RunBlast(self.blastOptions, self.chunkIDs[i], self.chunkIDs[j], resultsFileID))
             logger.info("Made the list of all-against-all blasts")
@@ -174,7 +179,7 @@ class BlastSequencesAgainstEachOtherWrapper(Job):
     def run(self, fileStore):
         sequenceFileIDList1 = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles1]
         sequenceFileIDList2 = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles2]
-        finalResultsFileID = fileStore.makeEmptyFileStoreID()
+        finalResultsFileID = fileStore.getEmptyFileStoreID()
         self.addChild(BlastSequencesAgainstEachOther(sequenceFileIDList1, sequenceFileIDList2, finalResultsFileID, self.blastOptions))
         self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
 class BlastSequencesAgainstEachOther(BlastSequencesAllAgainstAll):
@@ -185,8 +190,8 @@ class BlastSequencesAgainstEachOther(BlastSequencesAllAgainstAll):
         self.sequenceFileIDList2 = sequenceFileIDList2
         
     def run(self, fileStore):
-        sequenceFiles1 = [fileStore.getGlobalFile(fileID) for fileID in self.sequenceFileIDList1]
-        sequenceFiles2 = [fileStore.getGlobalFile(fileID) for fileID in self.sequenceFileIDList2]
+        sequenceFiles1 = [fileStore.readGlobalFile(fileID) for fileID in self.sequenceFileIDList1]
+        sequenceFiles2 = [fileStore.readGlobalFile(fileID) for fileID in self.sequenceFileIDList2]
         chunks1 = self.getChunks(sequenceFiles1, makeSubDir(os.path.join(fileStore.getLocalTempDir(), "chunks1")))
         chunks2 = self.getChunks(sequenceFiles2, makeSubDir(os.path.join(fileStore.getLocalTempDir(), "chunks2")))
         tempFileTree = TempFileTree(os.path.join(fileStore.getLocalTempDir(), "allAgainstAllResults"))
@@ -210,7 +215,7 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
     permanent file rather than the FileStore.
     """
     def __init__(self, blastOptions, ingroupSequenceFiles, outgroupSequenceFiles, 
-            finalResultsFile, ougroupFragmentsDir):
+            finalResultsFile, outgroupFragmentsDir):
         Job.__init__(self)
         self.blastOptions = blastOptions
         self.ingroupSequenceFiles = ingroupSequenceFiles
@@ -219,6 +224,7 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         self.outgroupFragmentsDir = outgroupFragmentsDir
 
         def run(self, fileStore):
+            assert 1 == 0
             try:
                 os.makedirs(self.outgroupFragmentsDir)
             except os.error:
@@ -227,8 +233,10 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
             #move everything to FileStore and run BlastIngroupsAndOutgroups
             ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
             outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
-            finalResultsFileID = fileStore.makeEmptyFileStoreID()
-            outgroupFragmentIDs = [fileStore.makeEmptyFileStoreID() for i in range(len(outgroupSequenceFileIDs))]
+            for fileID in ingroupSequenceFileIDs:
+                assert fileStore.globalFileExists(fileID)
+            finalResultsFileID = fileStore.getEmptyFileStoreID()
+            outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in range(len(outgroupSequenceFileIDs))]
             self.addChild(BlastIngroupsAndOutgroups(self.blastOptions, ingroupSequenceFileIDs, outgroupSequenceFileIDs,
                 finalResultsFileID, outgroupFragmentIDs))
             self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
@@ -260,7 +268,6 @@ class BlastIngroupsAndOutgroups(Job):
         
         ingroupResultFileID = fileStore.getEmptyFileStoreID()
         outgroupResultFileID = fileStore.getEmptyFileStoreID()
-        finalResultsFileID = fileStore.getEmptyFileStoreID()
         self.addChild(BlastSequencesAllAgainstAll(ingroupSequenceFileIDs,
                                                 ingroupResultFileID,
                                                 self.blastOptions))
@@ -275,12 +282,14 @@ class BlastIngroupsAndOutgroups(Job):
 class WritePermanentFile(Job):
     """Write a file from the filestore to a permanent path."""
     def __init__(self, fileID, filePath):
+        Job.__init__(self)
         self.filePath = filePath
         self.fileID = fileID
     def run(self, fileStore):
+        assert fileStore.globalFileExists(self.fileID)
         self.logToMaster("Writing file %s permanently to disk at %s" % (self,fileID, self.filePath))
         localTemp = fileStore.readGlobalFile(self.fileID)
-        shutil.copy(localTemp, self.filePath)
+        system("cp %s %s" % (localTemp, self.filePath))
 
 
 class BlastFirstOutgroup(Job):
@@ -445,10 +454,13 @@ class RunSelfBlast(Job):
         self.resultsFileID = resultsFileID
     
     def run(self, fileStore):
+        assert 1 == 0
+        assert fileStore.globalFileExists(self.seqFileID)
         seqFile = fileStore.readGlobalFile(self.seqFileID)
         tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.selfBlastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE", seqFile)
         system(command)
+        assert os.file.path.exists(tempResultsFile)
         tempResultsConvertedFile = os.path.join(fileStore.getLocalTempDir(), "tempResultsConverted.cig")
         system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, tempResultsConvertedFile, self.blastOptions.roundsOfCoordinateConversion))
         fileStore.updateGlobalFile(self.resultsFileID, tempResultsConvertedFile)
@@ -474,6 +486,9 @@ class RunBlast(Job):
         self.resultsFileID = resultsFileID
     
     def run(self, fileStore):
+        assert 1 == 0
+        assert fileStore.globalFileExists(self.seqFile1ID)
+        assert fileStore.globalFileExists(self.seqFile2ID)
         seqFile1 = fileStore.getGlobalFile(self.seqFile1ID)
         seqFile2 = fileStore.getGlobalFile(self.seqFile2ID)
         if self.blastOptions.compressFiles:
@@ -497,7 +512,7 @@ class CollateBlasts(Job):
     
     def run(self, fileStore):
         resultsFiles = [fileStore.readGlobalFile(fileID) for fileID in self.resultsFileIDs]
-        finalResultsFile = fileStore.readGlobalFile(self.finalResultsFileID)
+        finalResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
         catFiles(resultsFiles, finalResultsFile)
         fileStore.updateGlobalFile(self.finalResultsFileID, finalResultsFile)
         logger.info("Collated the alignments to the file: %s",  self.finalResultsFileID)
