@@ -44,10 +44,9 @@ class TestCase(unittest.TestCase):
     def tearDown(self):
         for tempFile in self.tempFiles:
             if os.path.exists(tempFile):
-                pass
-                #os.remove(tempFile)
+                os.remove(tempFile)
         unittest.TestCase.tearDown(self)
-        #system("rm -rf %s" % self.tempDir)
+        system("rm -rf %s" % self.tempDir)
         
     def runComparisonOfBlastScriptVsNaiveBlast(self, blastMode):
         """We compare the output with a naive run of the blast program, to check the results are nearly
@@ -72,16 +71,15 @@ class TestCase(unittest.TestCase):
                     toilDir = os.path.join(getTempDirectory(self.tempDir), "toil")
                     if blastMode == "allAgainstAll":
                         runCactusBlast([ seqFile1, seqFile2 ], self.tempOutputFile2, toilDir,
-                                       chunkSize=500000, overlapSize=10000)
+                                       chunkSize=500000, overlapSize=10000, logLevel="DEBUG")
                     else:
                         runCactusBlast([ seqFile1 ], self.tempOutputFile2, toilDir,
-                                       chunkSize=500000, overlapSize=10000, targetSequenceFiles=[ seqFile2 ])
-                    runToilStatusAndFailIfNotComplete(toilDir)
+                                       chunkSize=500000, overlapSize=10000, targetSequenceFiles=[ seqFile2 ], logLevel="DEBUG")
+                    #runToilStatusAndFailIfNotComplete(toilDir)
                     system("rm -rf %s " % toilDir)    
                     logger.info("Ran cactus_blast okay")
                     logger.critical("Comparing cactus_blast and naive blast; using mode: %s" % blastMode)
                     compareResultsFile(self.tempOutputFile, self.tempOutputFile2)
-    #@unittest.skip("")
     def testBlastEncodeAllAgainstAll(self):
         """For each encode region, for set of pairwise species, run 
         cactus_blast.py in all-against-all mode. 
@@ -115,7 +113,7 @@ class TestCase(unittest.TestCase):
                 # Align w/ increasing numbers of outgroups
                 subResults = getTempFile()
                 subOutgroupPaths = outgroupPaths[:numOutgroups]
-                tmpToil = getTempDirectory()
+                tmpToil = getTempDirectory(rootDir=self.tempDir)
                 print "aligning %s vs %s" % (",".join(ingroupPaths), ",".join(subOutgroupPaths))
                 system("cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s/toil" % (",".join(ingroupPaths), ",".join(subOutgroupPaths), subResults, tmpToil))
                 system("rm -fr %s" % (tmpToil))
@@ -216,7 +214,6 @@ class TestCase(unittest.TestCase):
                 
                 logger.critical("Comparing blast settings")
                 compareResultsFile(self.tempOutputFile, self.tempOutputFile2, 0.7)
-    
     @unittest.skip("")
     def testBlastRandom(self):
         """Make some sequences, put them in a file, call blast with random parameters 

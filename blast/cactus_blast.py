@@ -134,7 +134,6 @@ class MakeBlastsAllAgainstAll(Job):
         
     def run(self, fileStore):
         #Avoid compression if just one chunk
-        assert 1 == 0 
         self.blastOptions.compressFiles = self.blastOptions.compressFiles and len(self.chunkIDs) > 2
         resultsFileIDs = []
         for i in xrange(len(self.chunkIDs)):
@@ -142,22 +141,26 @@ class MakeBlastsAllAgainstAll(Job):
             #resultsFileID = fileStore.writeGlobalFile(resultsFile)
             resultsFileID = fileStore.getEmptyFileStoreID()
             resultsFileIDs.append(resultsFileID)
+            logger.info("Adding self blast for sequence %s" % (self.chunkIDs[i]))
+            assert fileStore.globalFileExists(self.chunkIDs[i])
             self.addChild(RunSelfBlast(self.blastOptions, self.chunkIDs[i], resultsFileID))
         logger.info("Made the list of self blasts")
         #Setup job to make all-against-all blasts
         self.addFollowOn(MakeBlastsAllAgainstAll2(self.blastOptions, self.chunkIDs, resultsFileIDs, self.finalResultsFileID))
     
-class MakeBlastsAllAgainstAll2(MakeBlastsAllAgainstAll):
-        def __init__(self, blastOptions, chunks, resultsFileIDs, finalResultsFileID):
-            MakeBlastsAllAgainstAll.__init__(self, blastOptions, chunks, finalResultsFileID)
+class MakeBlastsAllAgainstAll2(Job):
+        def __init__(self, blastOptions, chunkIDs, resultsFileIDs, finalResultsFileID):
+            Job.__init__(self)
+            self.blastOptions = blastOptions
+            self.chunkIDs = chunkIDs
             self.resultsFileIDs = resultsFileIDs
+            self.finalResultsFileID = finalResultsFileID
            
         def run(self, fileStore):
-            assert 1 == 0
             tempFileTree = TempFileTree(os.path.join(fileStore.getLocalTempDir(), "allAgainstAllResults"))
             #Make the list of blast jobs.
             for i in xrange(0, len(self.chunkIDs)):
-                for j in xrange(i+1, len(self.chunks)):
+                for j in xrange(i+1, len(self.chunkIDs)):
                     resultsFileID = fileStore.getEmptyFileStoreID()
                     self.resultsFileIDs.append(resultsFileID)
                     self.addChild(RunBlast(self.blastOptions, self.chunkIDs[i], self.chunkIDs[j], resultsFileID))
@@ -224,12 +227,14 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         self.outgroupFragmentsDir = outgroupFragmentsDir
 
         def run(self, fileStore):
-            assert 1 == 0
+            logger.critical("Running blast on ingroups and ougroups")
             try:
                 os.makedirs(self.outgroupFragmentsDir)
             except os.error:
                 # Directory already exists
                 pass
+            for seqPath in ingroupSequenceFiles:
+                assert os.path.exists(seqPath)
             #move everything to FileStore and run BlastIngroupsAndOutgroups
             ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
             outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
@@ -454,19 +459,22 @@ class RunSelfBlast(Job):
         self.resultsFileID = resultsFileID
     
     def run(self, fileStore):
-        assert 1 == 0
         assert fileStore.globalFileExists(self.seqFileID)
         seqFile = fileStore.readGlobalFile(self.seqFileID)
+        assert os.path.exists(seqFile)
+        #tempResultsFile = getTempFile(rootDir = fileStore.getLocalTempDir())
         tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.selfBlastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE", seqFile)
+        system("echo %s > /home/alden/blastcommand.txt" % command)
         system(command)
-        assert os.file.path.exists(tempResultsFile)
+        assert os.path.exists(tempResultsFile)
         tempResultsConvertedFile = os.path.join(fileStore.getLocalTempDir(), "tempResultsConverted.cig")
         system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, tempResultsConvertedFile, self.blastOptions.roundsOfCoordinateConversion))
         fileStore.updateGlobalFile(self.resultsFileID, tempResultsConvertedFile)
+        assert os.path.exists(tempResultsConvertedFile)
         if self.blastOptions.compressFiles:
             compressFastaFile(seqFile)
-        fileStore.updateGlobalFile(self.seqFile, seqFile)
+        fileStore.updateGlobalFile(self.seqFileID, seqFile)
         logger.info("Ran the self blast okay")
 
 def decompressFastaFile(fileName, tempFileName):
@@ -486,14 +494,13 @@ class RunBlast(Job):
         self.resultsFileID = resultsFileID
     
     def run(self, fileStore):
-        assert 1 == 0
         assert fileStore.globalFileExists(self.seqFile1ID)
         assert fileStore.globalFileExists(self.seqFile2ID)
-        seqFile1 = fileStore.getGlobalFile(self.seqFile1ID)
-        seqFile2 = fileStore.getGlobalFile(self.seqFile2ID)
+        seqFile1 = fileStore.readGlobalFile(self.seqFile1ID)
+        seqFile2 = fileStore.readGlobalFile(self.seqFile2ID)
         if self.blastOptions.compressFiles:
-            self.seqFile1 = decompressFastaFile(self.seqFile1 + ".bz2", os.path.join(self.getLocalTempDir(), "1.fa"))
-            self.seqFile2 = decompressFastaFile(self.seqFile2 + ".bz2", os.path.join(self.getLocalTempDir(), "2.fa"))
+            seqFile1 = decompressFastaFile(seqFile1 + ".bz2", os.path.join(fileStore.getLocalTempDir(), "1.fa"))
+            seqFile2 = decompressFastaFile(seqFile2 + ".bz2", os.path.join(fileStore.getLocalTempDir(), "2.fa"))
         tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.blastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE_1", seqFile1).replace("SEQ_FILE_2", seqFile2)
         system(command)

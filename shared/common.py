@@ -15,7 +15,6 @@ from sonLib.bioio import system, popenCatch, popenPush
 from sonLib.bioio import nameValue
 from sonLib.bioio import getLogLevelString
 
-from toil.common import runToilStatusAndFailIfNotComplete
 
 def cactusRootPath():
     """
