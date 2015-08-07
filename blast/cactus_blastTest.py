@@ -25,6 +25,7 @@ from sonLib.bioio import catFiles
 from sonLib.bioio import popenCatch
 from cactus.shared.test import parseCactusSuiteTestOptions
 from cactus.shared.common import runCactusBlast
+from cactus.shared.common import runCactusBlastIngroupsAndOutgroups
 from cactus.blast.cactus_blast import decompressFastaFile, compressFastaFile
 
 from toil.common import runToilStatusAndFailIfNotComplete
@@ -44,9 +45,10 @@ class TestCase(unittest.TestCase):
     def tearDown(self):
         for tempFile in self.tempFiles:
             if os.path.exists(tempFile):
-                os.remove(tempFile)
+                #os.remove(tempFile)
+                pass
         unittest.TestCase.tearDown(self)
-        system("rm -rf %s" % self.tempDir)
+        #system("rm -rf %s" % self.tempDir)
         
     def runComparisonOfBlastScriptVsNaiveBlast(self, blastMode):
         """We compare the output with a naive run of the blast program, to check the results are nearly
@@ -80,6 +82,7 @@ class TestCase(unittest.TestCase):
                     logger.info("Ran cactus_blast okay")
                     logger.critical("Comparing cactus_blast and naive blast; using mode: %s" % blastMode)
                     compareResultsFile(self.tempOutputFile, self.tempOutputFile2)
+    @unittest.skip("")
     def testBlastEncodeAllAgainstAll(self):
         """For each encode region, for set of pairwise species, run 
         cactus_blast.py in all-against-all mode. 
@@ -92,7 +95,6 @@ class TestCase(unittest.TestCase):
         cactus_blast.py in one set of sequences against another set mode. 
         """
         self.runComparisonOfBlastScriptVsNaiveBlast(blastMode="againstEachOther")
-
     @unittest.skip("")
     def testAddingOutgroupsImprovesResult(self):
         """Run blast on "ingroup" and "outgroup" encode regions, and ensure
@@ -115,7 +117,7 @@ class TestCase(unittest.TestCase):
                 subOutgroupPaths = outgroupPaths[:numOutgroups]
                 tmpToil = getTempDirectory(rootDir=self.tempDir)
                 print "aligning %s vs %s" % (",".join(ingroupPaths), ",".join(subOutgroupPaths))
-                system("cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s/toil" % (",".join(ingroupPaths), ",".join(subOutgroupPaths), subResults, tmpToil))
+                system("cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s/toil --logLevel=DEBUG" % (",".join(ingroupPaths), ",".join(subOutgroupPaths), subResults, tmpToil))
                 system("rm -fr %s" % (tmpToil))
                 results.append(subResults)
 
@@ -147,7 +149,6 @@ class TestCase(unittest.TestCase):
             for subResult in results:
                 os.remove(subResult)
 
-    @unittest.skip("")
     def testProgressiveOutgroupsVsAllOutgroups(self):
         """Tests the difference in outgroup coverage on an ingroup when
         running in "ingroups vs. outgroups" mode and "set against set"
@@ -167,7 +168,7 @@ class TestCase(unittest.TestCase):
         # Run in "ingroup vs outgroups" mode, aligning the ingroup vs
         # the outgroups in order, trimming away sequence that's
         # already been aligned.
-        system("cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s/outgroupToil" % (ingroupPath, ",".join(outgroupPaths), self.tempOutputFile2, self.tempDir))
+        system("cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s/outgroupToil --logLevel=DEBUG" % (ingroupPath, ",".join(outgroupPaths), self.tempOutputFile2, self.tempDir))
 
         # Get the coverage on the ingroup, in bases, from each run.
         coverageSetVsSet = int(popenCatch("cactus_coverage %s %s | awk '{ total +=  $3 - $2} END { print total }'" % (ingroupPath, self.tempOutputFile)))

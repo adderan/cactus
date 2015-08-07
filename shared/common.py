@@ -176,6 +176,23 @@ def runCactusBlast(sequenceFiles, outputFile, toilDir,
     logger.info("Running command : %s" % command)
     system(command)
     logger.info("Ran the cactus_blast command okay")
+def runCactusBlastIngroupsAndOutgroups(ingroupPaths, outgroupPaths, 
+                    outputFile,
+                    toilDir,
+                    logLevel="DEBUG",
+                    blastString=None,
+                    lastzMemory=None):
+    logLevel = getLogLevelString2(logLevel)
+    blastString = nameValue("blastString", blastString, str)
+    lastzMemory = nameValue("lastzMemory", lastzMemory, int)
+    ingroupPaths = ",".join(ingroupPaths)
+    outgroupPaths = ",".join(outgroupPaths)
+    command = "cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s --logLevel %s %s %s" % \
+            (ingroupPaths, outgroupPaths, outputFile, toilDir, logLevel, blastString, lastzMemory)
+    logger.info("Running command : %s" % command)
+    system(command)
+    logger.info("Ran cactus ingroups and outgroups blast.")
+
 
 def runConvertAlignmentsToInternalNames(cactusDiskString, alignmentsFile, outputFile, flowerName):
     popenCatch("cactus_convertAlignmentsToInternalNames --cactusDisk '%s' %s %s" % (cactusDiskString, alignmentsFile, outputFile), stdinString=encodeFlowerNames((flowerName,)))

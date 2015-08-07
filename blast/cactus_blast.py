@@ -89,6 +89,7 @@ class BlastSequencesAllAgainstAllWrapper(Job):
         self.blastOptions = blastOptions
 
     def run(self, fileStore):
+        self.blastOptions.compressFiles = False
         for sequenceFile in self.sequenceFiles:
             assert os.path.exists(sequenceFile)
         sequenceFileIDList = [fileStore.writeGlobalFile(path) for path in self.sequenceFiles]
@@ -137,8 +138,6 @@ class MakeBlastsAllAgainstAll(Job):
         self.blastOptions.compressFiles = self.blastOptions.compressFiles and len(self.chunkIDs) > 2
         resultsFileIDs = []
         for i in xrange(len(self.chunkIDs)):
-            #resultsFile = os.path.join(selfResultsDir, str(i))
-            #resultsFileID = fileStore.writeGlobalFile(resultsFile)
             resultsFileID = fileStore.getEmptyFileStoreID()
             resultsFileIDs.append(resultsFileID)
             logger.info("Adding self blast for sequence %s" % (self.chunkIDs[i]))
@@ -227,6 +226,7 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         self.outgroupFragmentsDir = outgroupFragmentsDir
 
         def run(self, fileStore):
+            assert 1 == 0
             logger.critical("Running blast on ingroups and ougroups")
             try:
                 os.makedirs(self.outgroupFragmentsDir)
@@ -238,8 +238,6 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
             #move everything to FileStore and run BlastIngroupsAndOutgroups
             ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
             outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
-            for fileID in ingroupSequenceFileIDs:
-                assert fileStore.globalFileExists(fileID)
             finalResultsFileID = fileStore.getEmptyFileStoreID()
             outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in range(len(outgroupSequenceFileIDs))]
             self.addChild(BlastIngroupsAndOutgroups(self.blastOptions, ingroupSequenceFileIDs, outgroupSequenceFileIDs,
@@ -269,7 +267,8 @@ class BlastIngroupsAndOutgroups(Job):
         self.outgroupFragmentIDs = outgroupFragmentIDs
 
     def run(self, fileStore):
-        self.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFileID))
+        fileStore.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFileID))
+        assert 1 == 0
         
         ingroupResultFileID = fileStore.getEmptyFileStoreID()
         outgroupResultFileID = fileStore.getEmptyFileStoreID()
@@ -292,7 +291,7 @@ class WritePermanentFile(Job):
         self.fileID = fileID
     def run(self, fileStore):
         assert fileStore.globalFileExists(self.fileID)
-        self.logToMaster("Writing file %s permanently to disk at %s" % (self,fileID, self.filePath))
+        fileStore.logToMaster("Writing file %s permanently to disk at %s" % (self.fileID, self.filePath))
         localTemp = fileStore.readGlobalFile(self.fileID)
         system("cp %s %s" % (localTemp, self.filePath))
 
@@ -474,7 +473,8 @@ class RunSelfBlast(Job):
         assert os.path.exists(tempResultsConvertedFile)
         if self.blastOptions.compressFiles:
             compressFastaFile(seqFile)
-        fileStore.updateGlobalFile(self.seqFileID, seqFile)
+            fileStore.updateGlobalFile(self.seqFileID, seqFile)
+            logger.info("compressing fasta file %s" % self.seqFileID)
         logger.info("Ran the self blast okay")
 
 def decompressFastaFile(fileName, tempFileName):
@@ -499,8 +499,8 @@ class RunBlast(Job):
         seqFile1 = fileStore.readGlobalFile(self.seqFile1ID)
         seqFile2 = fileStore.readGlobalFile(self.seqFile2ID)
         if self.blastOptions.compressFiles:
-            seqFile1 = decompressFastaFile(seqFile1 + ".bz2", os.path.join(fileStore.getLocalTempDir(), "1.fa"))
-            seqFile2 = decompressFastaFile(seqFile2 + ".bz2", os.path.join(fileStore.getLocalTempDir(), "2.fa"))
+            seqFile1 = decompressFastaFile(seqFile1, os.path.join(fileStore.getLocalTempDir(), "1.fa"))
+            seqFile2 = decompressFastaFile(seqFile2, os.path.join(fileStore.getLocalTempDir(), "2.fa"))
         tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.blastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE_1", seqFile1).replace("SEQ_FILE_2", seqFile2)
         system(command)
@@ -648,6 +648,7 @@ replaced with the the sequence file and the results file, respectively",
         raise RuntimeError("--ingroups and --outgroups must be provided "
                            "together")
     if options.ingroups:
+        options.logLevel = "DEBUG"
         firstJob = BlastIngroupsAndOutgroupsWrapper(options,
                                                 options.ingroups.split(','),
                                                 options.outgroups.split(','),
@@ -657,7 +658,7 @@ replaced with the the sequence file and the results file, respectively",
         firstJob = BlastSequencesAllAgainstAllWrapper(args, options.cigarFile, options)
     else:
         firstJob = BlastSequencesAgainstEachOtherWrapper(args, options.targetSequenceFiles.split(), options.cigarFile, options)
-    Job.Runner().startToil(firstJob, options)
+    Job.Runner.startToil(firstJob, options)
 
 def _test():
     import doctest
