@@ -45,10 +45,9 @@ class TestCase(unittest.TestCase):
     def tearDown(self):
         for tempFile in self.tempFiles:
             if os.path.exists(tempFile):
-                #os.remove(tempFile)
-                pass
+                os.remove(tempFile)
         unittest.TestCase.tearDown(self)
-        #system("rm -rf %s" % self.tempDir)
+        system("rm -rf %s" % self.tempDir)
         
     def runComparisonOfBlastScriptVsNaiveBlast(self, blastMode):
         """We compare the output with a naive run of the blast program, to check the results are nearly
@@ -95,7 +94,7 @@ class TestCase(unittest.TestCase):
         cactus_blast.py in one set of sequences against another set mode. 
         """
         self.runComparisonOfBlastScriptVsNaiveBlast(blastMode="againstEachOther")
-    @unittest.skip("")
+
     def testAddingOutgroupsImprovesResult(self):
         """Run blast on "ingroup" and "outgroup" encode regions, and ensure
         that adding an extra outgroup only adds alignments if
@@ -149,6 +148,7 @@ class TestCase(unittest.TestCase):
             for subResult in results:
                 os.remove(subResult)
 
+    @unittest.skip("")
     def testProgressiveOutgroupsVsAllOutgroups(self):
         """Tests the difference in outgroup coverage on an ingroup when
         running in "ingroups vs. outgroups" mode and "set against set"

@@ -212,12 +212,8 @@ class BlastSequencesAgainstEachOther(BlastSequencesAllAgainstAll):
         logger.info("Made the list of blasts")
         #Set up the job to collate all the results
         self.addFollowOn(CollateBlasts(self.finalResultsFileID, resultsFileIDs))
-class BlastIngroupsAndOutgroupsWrapper(Job):
-    """Runs Blast on ingroups and outgroups and writes to
-    permanent file rather than the FileStore.
-    """
-    def __init__(self, blastOptions, ingroupSequenceFiles, outgroupSequenceFiles, 
-            finalResultsFile, outgroupFragmentsDir):
+class BlastIngroupsAndOutgroupsLocalFiles(Job):
+    def __init__(self, blastOptions, ingroupSequenceFiles, outgroupSequenceFiles, finalResultsFile, outgroupFragmentsDir):
         Job.__init__(self)
         self.blastOptions = blastOptions
         self.ingroupSequenceFiles = ingroupSequenceFiles
@@ -225,29 +221,26 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         self.finalResultsFile = finalResultsFile
         self.outgroupFragmentsDir = outgroupFragmentsDir
 
-        def run(self, fileStore):
-            assert 1 == 0
-            logger.critical("Running blast on ingroups and ougroups")
-            try:
-                os.makedirs(self.outgroupFragmentsDir)
-            except os.error:
-                # Directory already exists
-                pass
-            for seqPath in ingroupSequenceFiles:
-                assert os.path.exists(seqPath)
-            #move everything to FileStore and run BlastIngroupsAndOutgroups
-            ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
-            outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
-            finalResultsFileID = fileStore.getEmptyFileStoreID()
-            outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in range(len(outgroupSequenceFileIDs))]
-            self.addChild(BlastIngroupsAndOutgroups(self.blastOptions, ingroupSequenceFileIDs, outgroupSequenceFileIDs,
-                finalResultsFileID, outgroupFragmentIDs))
-            self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
-            for i in range(len(outgroupFragmentIDs)):
-                fragmentID = outgroupFragmentIDs[i]
-                outgroupSequenceFilename = self.outgroupSequenceFiles[i]
-                self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(outgroupFragmentsDir, outgroupSequenceFilename)))
-
+    def run(self, fileStore):
+        try:
+            os.makedirs(self.outgroupFragmentsDir)
+        except os.error:
+           # Directory already exists
+            pass
+        for seqPath in self.ingroupSequenceFiles:
+            assert os.path.exists(seqPath)
+        #move everything to FileStore and run BlastIngroupsAndOutgroups
+        ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
+        outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
+        finalResultsFileID = fileStore.getEmptyFileStoreID()
+        outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in range(len(outgroupSequenceFileIDs))]
+        self.addChild(BlastIngroupsAndOutgroups(self.blastOptions, ingroupSequenceFileIDs, outgroupSequenceFileIDs,
+            finalResultsFileID, outgroupFragmentIDs))
+        self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
+        for i in range(len(outgroupFragmentIDs)):
+            fragmentID = outgroupFragmentIDs[i]
+            outgroupSequenceFilename = self.outgroupSequenceFiles[i]
+            self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(self.outgroupFragmentsDir, outgroupSequenceFilename)))
 
 class BlastIngroupsAndOutgroups(Job):
     """Blast ingroup sequences against each other, and against the given
@@ -257,7 +250,7 @@ class BlastIngroupsAndOutgroups(Job):
     """
     def __init__(self, blastOptions, ingroupSequenceFileIDs,
                  outgroupSequenceFileIDs, finalResultsFileID,
-                 outgroupFragmentsIDs):
+                 outgroupFragmentIDs):
         Job.__init__(self, memory = blastOptions.memory)
         self.blastOptions = blastOptions
         self.blastOptions.roundsOfCoordinateConversion = 1
@@ -268,16 +261,15 @@ class BlastIngroupsAndOutgroups(Job):
 
     def run(self, fileStore):
         fileStore.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFileID))
-        assert 1 == 0
         
         ingroupResultFileID = fileStore.getEmptyFileStoreID()
         outgroupResultFileID = fileStore.getEmptyFileStoreID()
-        self.addChild(BlastSequencesAllAgainstAll(ingroupSequenceFileIDs,
+        self.addChild(BlastSequencesAllAgainstAll(self.ingroupSequenceFileIDs,
                                                 ingroupResultFileID,
                                                 self.blastOptions))
-        self.addChild(BlastFirstOutgroup(ingroupSequenceFileIDs,
-                                               ingroupSequenceFileIDs,
-                                               outgroupSequenceFileIDs,
+        self.addChild(BlastFirstOutgroup(self.ingroupSequenceFileIDs,
+                                               self.ingroupSequenceFileIDs,
+                                               self.outgroupSequenceFileIDs,
                                                self.outgroupFragmentIDs,
                                                outgroupResultFileID,
                                                self.blastOptions, 1))
@@ -292,8 +284,7 @@ class WritePermanentFile(Job):
     def run(self, fileStore):
         assert fileStore.globalFileExists(self.fileID)
         fileStore.logToMaster("Writing file %s permanently to disk at %s" % (self.fileID, self.filePath))
-        localTemp = fileStore.readGlobalFile(self.fileID)
-        system("cp %s %s" % (localTemp, self.filePath))
+        fileStore.readGlobalFile(self.fileID, self.filePath)
 
 
 class BlastFirstOutgroup(Job):
@@ -348,20 +339,21 @@ class TrimAndRecurseOnOutgroups(Job):
         # Trim outgroup, convert outgroup coordinates, and add to
         # outgroup fragments dir
         outgroupSequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.outgroupSequenceFileIDs]
+        sequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.sequenceFileIDs]
         untrimmedSequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.untrimmedSequenceFileIDs]
         mostRecentResultsFile = fileStore.readGlobalFile(self.mostRecentResultsFileID)
 
         trimmedOutgroup = getTempFile(rootDir=fileStore.getLocalTempDir())
         outgroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
-        calculateCoverage(self.outgroupSequenceFiles[0],
-                          self.mostRecentResultsFile, outgroupCoverage)
+        calculateCoverage(outgroupSequenceFiles[0],
+                          mostRecentResultsFile, outgroupCoverage)
         # The windowSize and threshold are fixed at 1: anything more
         # and we will run into problems with alignments that aren't
         # covered in a matching trimmed sequence.
-        trimGenome(self.outgroupSequenceFiles[0], outgroupCoverage,
+        trimGenome(outgroupSequenceFiles[0], outgroupCoverage,
                    trimmedOutgroup, flanking=self.blastOptions.trimOutgroupFlanking,
                    windowSize=1, threshold=1)
-        outgroupConvertedResultsFile = getTempFile(rootDir=fileStore.getLocalTempFile())
+        outgroupConvertedResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
         system("cactus_upconvertCoordinates.py %s %s 1 > %s" %\
                (trimmedOutgroup, mostRecentResultsFile,
                 outgroupConvertedResultsFile))
@@ -373,12 +365,12 @@ class TrimAndRecurseOnOutgroups(Job):
             tmpIngroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
             calculateCoverage(trimmedIngroupSequence, mostRecentResultsFile,
                               tmpIngroupCoverage)
-            self.logToMaster("Coverage on %s from outgroup #%d, %s: %s%% (current ingroup length %d, untrimmed length %d). Outgroup trimmed to %d bp from %d" % (os.path.basename(ingroupSequence), self.outgroupNumber, os.path.basename(outgroupSequenceFiles[0]), percentCoverage(trimmedIngroupSequence, tmpIngroupCoverage), sequenceLength(trimmedIngroupSequence), sequenceLength(ingroupSequence), sequenceLength(trimmedOutgroup), sequenceLength(outgroupSequenceFiles[0])))
+            fileStore.logToMaster("Coverage on %s from outgroup #%d, %s: %s%% (current ingroup length %d, untrimmed length %d). Outgroup trimmed to %d bp from %d" % (os.path.basename(ingroupSequence), self.outgroupNumber, os.path.basename(outgroupSequenceFiles[0]), percentCoverage(trimmedIngroupSequence, tmpIngroupCoverage), sequenceLength(trimmedIngroupSequence), sequenceLength(ingroupSequence), sequenceLength(trimmedOutgroup), sequenceLength(outgroupSequenceFiles[0])))
 
 
         # Convert the alignments' ingroup coordinates.
         ingroupConvertedResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
-        if self.sequenceFiles == self.untrimmedSequenceFiles:
+        if sequenceFiles == untrimmedSequenceFiles:
             # No need to convert ingroup coordinates on first run.
             system("cp %s %s" % (outgroupConvertedResultsFile,
                                  ingroupConvertedResultsFile))
@@ -386,12 +378,12 @@ class TrimAndRecurseOnOutgroups(Job):
             system("cactus_blast_convertCoordinates --onlyContig1 %s %s 1" % (
                 outgroupConvertedResultsFile, ingroupConvertedResultsFile))
         
-        outputLocalFile = fileStore.readGlobalFile(self.outputFile)
+        outputLocalFile = fileStore.readGlobalFile(self.outputFileID)
         # Append the latest results to the accumulated outgroup coverage file
         with open(ingroupConvertedResultsFile) as results:
             with open(outputLocalFile, 'a') as output:
                 output.write(results.read())
-        fileStore.updateGlobalFile(self.outputFile, outputLocalFile)
+        fileStore.updateGlobalFile(self.outputFileID, outputLocalFile)
 
         os.remove(outgroupConvertedResultsFile)
         os.remove(ingroupConvertedResultsFile)
@@ -404,7 +396,7 @@ class TrimAndRecurseOnOutgroups(Job):
             tmpIngroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
             calculateCoverage(ingroupSequence, outputLocalFile,
                               tmpIngroupCoverage)
-            self.logToMaster("Cumulative coverage of %d outgroups on ingroup %s: %s" % (self.outgroupNumber, os.path.basename(ingroupSequence), percentCoverage(ingroupSequence, tmpIngroupCoverage)))
+            fileStore.logToMaster("Cumulative coverage of %d outgroups on ingroup %s: %s" % (self.outgroupNumber, os.path.basename(ingroupSequence), percentCoverage(ingroupSequence, tmpIngroupCoverage)))
             ingroupCoverageFiles.append(tmpIngroupCoverage)
 
         # Trim ingroup seqs and recurse on the next outgroup.
@@ -437,7 +429,7 @@ class TrimAndRecurseOnOutgroups(Job):
             trimmedSeqIDs = [fileStore.writeGlobalFile(seq) for seq in trimmedSeqs]
             self.addChild(BlastFirstOutgroup(self.untrimmedSequenceFileIDs,
                                                    trimmedSeqIDs,
-                                                   self.outgroupSequenceFiles[1:],
+                                                   self.outgroupSequenceFileIDs[1:],
                                                    self.outgroupFragmentIDs[1:],
                                                    self.outputFileID,
                                                    self.blastOptions,
@@ -536,7 +528,6 @@ class SortCigarAlignmentsInPlace(Job):
         system("cactus_blast_sortAlignments %s %s %i" % (getLogLevelString(), self.cigarFile, tempResultsFile))
         logger.info("Sorted the alignments okay")
         system("mv %s %s" % (tempResultsFile, self.cigarFile))
-
 def sequenceLength(sequenceFile):
     """Get the total # of bp from a fasta file."""
     seqLength = 0
@@ -648,12 +639,11 @@ replaced with the the sequence file and the results file, respectively",
         raise RuntimeError("--ingroups and --outgroups must be provided "
                            "together")
     if options.ingroups:
-        options.logLevel = "DEBUG"
-        firstJob = BlastIngroupsAndOutgroupsWrapper(options,
-                                                options.ingroups.split(','),
-                                                options.outgroups.split(','),
-                                                options.cigarFile,
-                                                options.outgroupFragmentsDir)
+        firstJob = BlastIngroupsAndOutgroupsLocalFiles(options,
+                options.ingroups.split(','),
+                options.outgroups.split(','),
+                options.cigarFile,
+                options.outgroupFragmentsDir)
     elif options.targetSequenceFiles == None:
         firstJob = BlastSequencesAllAgainstAllWrapper(args, options.cigarFile, options)
     else:
