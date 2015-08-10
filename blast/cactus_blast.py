@@ -262,8 +262,10 @@ class BlastIngroupsAndOutgroups(Job):
     def run(self, fileStore):
         fileStore.logToMaster("Blasting ingroups vs outgroups to file %s" % (self.finalResultsFileID))
         
-        ingroupResultFileID = fileStore.getEmptyFileStoreID()
-        outgroupResultFileID = fileStore.getEmptyFileStoreID()
+        ingroupResultEmptyFile = getTempFile(rootDir=fileStore.getLocalTempDir())
+        outgroupResultEmptyFile = getTempFile(rootDir=fileStore.getLocalTempDir())
+        ingroupResultFileID = fileStore.writeGlobalFile(ingroupResultEmptyFile)
+        outgroupResultFileID = fileStore.writeGlobalFile(outgroupResultEmptyFile)
         self.addChild(BlastSequencesAllAgainstAll(self.ingroupSequenceFileIDs,
                                                 ingroupResultFileID,
                                                 self.blastOptions))
@@ -338,9 +340,17 @@ class TrimAndRecurseOnOutgroups(Job):
     def run(self, fileStore):
         # Trim outgroup, convert outgroup coordinates, and add to
         # outgroup fragments dir
+        for outgroupID in self.outgroupSequenceFileIDs:
+            assert fileStore.globalFileExists(outgroupID)
+        for seqID in self.sequenceFileIDs:
+            assert fileStore.globalFileExists(seqID)
+        for untrimmedID in self.untrimmedSequenceFileIDs:
+            assert fileStore.globalFileExists(untrimmedID)
+
         outgroupSequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.outgroupSequenceFileIDs]
         sequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.sequenceFileIDs]
         untrimmedSequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in self.untrimmedSequenceFileIDs]
+        assert fileStore.globalFileExists(self.mostRecentResultsFileID)
         mostRecentResultsFile = fileStore.readGlobalFile(self.mostRecentResultsFileID)
 
         trimmedOutgroup = getTempFile(rootDir=fileStore.getLocalTempDir())
@@ -364,13 +374,13 @@ class TrimAndRecurseOnOutgroups(Job):
         for trimmedIngroupSequence, ingroupSequence in zip(sequenceFiles, untrimmedSequenceFiles):
             tmpIngroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
             calculateCoverage(trimmedIngroupSequence, mostRecentResultsFile,
-                              tmpIngroupCoverage)
+                             tmpIngroupCoverage)
             fileStore.logToMaster("Coverage on %s from outgroup #%d, %s: %s%% (current ingroup length %d, untrimmed length %d). Outgroup trimmed to %d bp from %d" % (os.path.basename(ingroupSequence), self.outgroupNumber, os.path.basename(outgroupSequenceFiles[0]), percentCoverage(trimmedIngroupSequence, tmpIngroupCoverage), sequenceLength(trimmedIngroupSequence), sequenceLength(ingroupSequence), sequenceLength(trimmedOutgroup), sequenceLength(outgroupSequenceFiles[0])))
 
 
         # Convert the alignments' ingroup coordinates.
         ingroupConvertedResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
-        if sequenceFiles == untrimmedSequenceFiles:
+        if self.sequenceFileIDs == self.untrimmedSequenceFileIDs:
             # No need to convert ingroup coordinates on first run.
             system("cp %s %s" % (outgroupConvertedResultsFile,
                                  ingroupConvertedResultsFile))
@@ -412,7 +422,7 @@ class TrimAndRecurseOnOutgroups(Job):
         # Could also just ignore the coverage on the outgroup to
         # start, since the fraction of duplicated sequence will be
         # relatively small.
-        if len(outgroupSequenceFiles) > 1:
+        if len(self.outgroupSequenceFileIDs) > 1:
             trimmedSeqs = []
             # Use the accumulated results so far to trim away the
             # aligned parts of the ingroups.
@@ -510,6 +520,8 @@ class CollateBlasts(Job):
         self.resultsFileIDs = resultsFileIDs
     
     def run(self, fileStore):
+        for fileID in self.resultsFileIDs:
+            assert fileStore.globalFileExists(fileID)
         resultsFiles = [fileStore.readGlobalFile(fileID) for fileID in self.resultsFileIDs]
         finalResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
         catFiles(resultsFiles, finalResultsFile)
@@ -554,7 +566,6 @@ def calculateCoverage(sequenceFile, cigarFile, outputFile):
     system("cactus_coverage %s %s > %s" % (sequenceFile,
                                            cigarFile,
                                            outputFile))
-
 def trimGenome(sequenceFile, coverageFile, outputFile, complement=False,
                flanking=0, minSize=1, windowSize=10, threshold=1):
     system("cactus_trimSequences.py %s %s %s %s %s %s %s > %s" % (
