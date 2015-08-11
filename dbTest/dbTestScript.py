@@ -6,7 +6,7 @@
 from optparse import OptionParser
 from toil.src.toil.job import Job
 from sonLib.bioio import system, spawnDaemon, setLoggingFromOptions, logger, getLogLevelString
-from toil.src.toil.common import runToilStatusAndFailIfNotComplete
+from cactus.shared.common import runToilStatusAndFailIfNotComplete
 
 def getDatabaseConf(options):
     return "<st_kv_database_conf type=\"kyoto_tycoon\"><kyoto_tycoon host=\"%s\" port=\"%s\" database_dir=\"%s\"/></<st_kv_database_conf>" % \

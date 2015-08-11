@@ -25,14 +25,15 @@ from sonLib.bioio import getTempFile
 from sonLib.bioio import newickTreeParser
 
 from sonLib.bioio import logger
-from sonLib.bioio import setLoggingFromOptions
+#from sonLib.bioio import setLoggingFromOptions
 from sonLib.bioio import system
 from sonLib.bioio import makeSubDir
 
 from cactus.shared.common import cactusRootPath
   
-from toil.src.toil.job import Job
-from sonLib.bioio import getLogLevelString
+from toil.job import Job
+from toil.lib.bioio import getLogLevelString
+from toil.lib.bioio import setLoggingFromOptions
 
 from cactus.shared.common import getOptionalAttrib
 from cactus.shared.common import runCactusSetup
@@ -526,8 +527,8 @@ class CactusCafWrapperLarge(CactusRecursionJob):
         logger.info("Starting the cactus aligner job")
         #Generate a temporary file to hold the alignments
         #alignmentFile = os.path.join(fileStore.getGlobalTempDir(), "alignments.cigar")
-		alignmentFile = os.path.join(fileStore.getLocalTempDir(), "alignments.cigar")
-		alignmentFileID = fileStore.writeGlobalFile(alignmentFile)
+        alignmentFile = os.path.join(fileStore.getLocalTempDir(), "alignments.cigar")
+        alignmentFileID = fileStore.writeGlobalFile(alignmentFile)
         flowerName = decodeFirstFlowerName(self.flowerNames)
         self.addChild(BlastFlower(self.cactusDiskDatabaseString, 
                                           flowerName, alignmentFileID, 

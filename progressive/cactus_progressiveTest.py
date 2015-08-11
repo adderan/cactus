@@ -33,7 +33,7 @@ from cactus.shared.common import cactusRootPath
 from cactus.shared.common import runCactusProgressive
 from cactus.shared.common import runCactusCreateMultiCactusProject
 from cactus.shared.configWrapper import ConfigWrapper
-from toil.src.toil.common import runToilStatusAndFailIfNotComplete
+from cactus.shared.common import runToilStatusAndFailIfNotComplete
 
 class TestCase(unittest.TestCase):
     

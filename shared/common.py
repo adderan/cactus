@@ -15,6 +15,14 @@ from sonLib.bioio import system, popenCatch, popenPush
 from sonLib.bioio import nameValue
 from sonLib.bioio import getLogLevelString
 
+def runToilStatusAndFailIfNotComplete(toilDir):
+    command = "toilStatus --toil %s --failIfNotComplete --verbose" % toilDir
+    system(command)
+
+def runToilStats(toilDir, outputFile):
+    system("toilStats --toil %s --outputFile %s" % (toilDir, outputFile))
+    logger.info("Ran the  toilStats command apparently okay")
+
 
 def cactusRootPath():
     """

@@ -28,7 +28,7 @@ from cactus.shared.common import runCactusBlast
 from cactus.shared.common import runCactusBlastIngroupsAndOutgroups
 from cactus.blast.cactus_blast import decompressFastaFile, compressFastaFile
 
-from toil.common import runToilStatusAndFailIfNotComplete
+from cactus.shared.common import runToilStatusAndFailIfNotComplete
 
 class TestCase(unittest.TestCase):
     def setUp(self):

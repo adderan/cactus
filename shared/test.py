@@ -30,7 +30,7 @@ from sonLib.bioio import TestStatus
 
 from sonLib.tree import makeRandomBinaryTree
 
-from toil.common import runToilStats, runToilStatusAndFailIfNotComplete
+from cactus.shared.common import runToilStats, runToilStatusAndFailIfNotComplete
 
 from cactus.shared.experimentWrapper import DbElemWrapper
 from cactus.shared.experimentWrapper import ExperimentWrapper

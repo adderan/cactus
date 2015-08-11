@@ -23,7 +23,7 @@ from sonLib.bioio import getLogLevelString
 from sonLib.bioio import newickTreeParser
 from sonLib.bioio import makeSubDir
 from sonLib.bioio import catFiles, getTempFile
-from toil.src.toil.job import Job
+from toil.job import Job
 from cactus.shared.common import getOptionalAttrib, runCactusAnalyseAssembly
 from sonLib.bioio import setLoggingFromOptions
 from cactus.shared.configWrapper import ConfigWrapper

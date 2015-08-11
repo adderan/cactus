@@ -37,7 +37,7 @@ import math
 import xml.etree.ElementTree as ET
 
 from sonLib.bioio import getTempFile
-from toil.src.toil.job import Job
+from toil.job import Job
 from cactus.shared.experimentWrapper import DbElemWrapper
 from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.pipeline.ktserverControl import runKtserver
@@ -76,12 +76,12 @@ from cactus.pipeline.ktserverControl import getKtServerReport
 # killTimeout : amount of time to wait for server to die after deleting
 #               the kill switch file before throwing an error
 ###############################################################################
-def addKtserverDependentChild(rootJob, newChild, maxMemory, maxCpu,
+def addKtserverDependentChild(rootJob, rootJobFileStore, newChild, maxMemory, maxCpu,
                               isSecondary = False,
                               createTimeout = 30, loadTimeout = 10000,
                               blockTimeout=sys.maxint, blockTimestep=10,
                               runTimeout=sys.maxint, runTimestep=10,
-                              killTimeout=10000, killSwitchFileID):
+                              killTimeout=10000):
     from cactus.pipeline.cactus_workflow import CactusPhasesJob
     from cactus.pipeline.cactus_workflow import CactusRecursionJob
     
@@ -210,6 +210,6 @@ class KtserverJobKiller(Job):
             ET.tostring(self.dbElem.getDbElem()), self.killSwitchFileID))
         report = getKtServerReport(self.dbElem)
         self.logToMaster(report)
-        killKtServer(self.dbElem, killSwitchFileID,
-                     killTimeout=self.killTimeout, fileStore)
+        killKtServer(self.dbElem, killSwitchFileID, fileStore,
+                     killTimeout=self.killTimeout)
     
