@@ -94,7 +94,6 @@ class TestCase(unittest.TestCase):
         cactus_blast.py in one set of sequences against another set mode. 
         """
         self.runComparisonOfBlastScriptVsNaiveBlast(blastMode="againstEachOther")
-
     def testAddingOutgroupsImprovesResult(self):
         """Run blast on "ingroup" and "outgroup" encode regions, and ensure
         that adding an extra outgroup only adds alignments if

@@ -240,7 +240,7 @@ class BlastIngroupsAndOutgroupsLocalFiles(Job):
         for i in range(len(outgroupFragmentIDs)):
             fragmentID = outgroupFragmentIDs[i]
             outgroupSequenceFilename = self.outgroupSequenceFiles[i]
-            self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(self.outgroupFragmentsDir, outgroupSequenceFilename)))
+            #self.addFollowOn(WritePermanentFile(fragmentID, os.path.join(self.outgroupFragmentsDir, outgroupSequenceFilename)))
 
 class BlastIngroupsAndOutgroups(Job):
     """Blast ingroup sequences against each other, and against the given
