@@ -123,11 +123,11 @@ class TestCase(unittest.TestCase):
         node = ET.SubElement(self.barNode, "CactusTestJob", attrib={ "memory":10, "cpu":2,  "overlargeMemory":20 })
         job = CactusTestJob(self.barNode, self.barNode)
         self.assertEquals(job.jobNode, node)
-        self.assertEquals(job.getMemory(), 10)
-        self.assertEquals(job.getCpu(), 2)
+        self.assertEquals(job.memory, 10)
+        self.assertEquals(job.cpu, 2)
         job = CactusTestJob(self.barNode, self.barNode, overlarge=True)
-        self.assertEquals(job.getMemory(), 20)
-        self.assertEquals(job.getCpu(), sys.maxint)
+        self.assertEquals(job.memory, 20)
+        self.assertEquals(job.cpu, sys.maxint)
         self.assertEquals(job.getOptionalPhaseAttrib("diagonalExpansion", typeFn=int), 20)
         self.assertEquals(job.getOptionalPhaseAttrib("doesntExist", typeFn=int, default=1), 1)
         self.assertEquals(job.getOptionalJobAttrib("memory", typeFn=int), 10)
@@ -137,8 +137,8 @@ class TestCase(unittest.TestCase):
             pass
         job = CactusTestJob2(self.barNode, self.barNode)
         self.assertEquals(job.jobNode, None)
-        self.assertEquals(job.getMemory(), sys.maxint)
-        self.assertEquals(job.getCpu(), sys.maxint)
+        self.assertEquals(job.memory, sys.maxint)
+        self.assertEquals(job.cpu, sys.maxint)
     
     def testGetLongestPath(self):
         self.assertAlmostEquals(getLongestPath(newickTreeParser("(b(a:0.5):0.5,b(a:1.5):0.5)")), 2.0)
