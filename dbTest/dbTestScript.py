@@ -28,7 +28,7 @@ class AddKeysPhase(Job):
         Job.__init__(self)
         self.options = options
     
-    def run(self):
+    def run(self, fileStore):
         keyIndex = 0
         for jobIndex in xrange(int(self.options.totalJobs)):
             self.addChild(AddKeys(self.options, keyIndex))
@@ -41,18 +41,18 @@ class AddKeys(Job):
         self.options = options
         self.firstKey = firstKey
         
-    def run(self):
+    def run(self, fileStore):
         runDbTestScript(self.options, self.firstKey, self.options.keysPerJob, addRecords=True)
 
 class SetKeysPhase(AddKeysPhase):
-    def run(self):
+    def run(self, fileStore):
         keyIndex = 0
         for jobIndex in xrange(int(self.options.totalJobs)):
             self.addChild(SetKeys(self.options, keyIndex))
             keyIndex += int(self.options.keysPerJob)
 
 class SetKeys(AddKeys):
-    def run(self):
+    def run(self, fileStore):
         runDbTestScript(self.options, self.firstKey, self.options.keysPerJob, setRecords=True)
 
 def main():
@@ -83,7 +83,7 @@ def main():
     if len(args) != 0:
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
     
-    Job.Runner().startToil(AddKeysPhase(options), options)
+    Job.Runner.startToil(AddKeysPhase(options), options)
 
 def _test():
     import doctest      

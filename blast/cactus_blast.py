@@ -18,6 +18,7 @@ from sonLib.bioio import catFiles
 from sonLib.bioio import getTempFile
 from sonLib.bioio import nameValue
 from toil.job import Job
+from cactus.shared.commonJobs import WritePermanentFile
 
 class BlastOptions:
     def __init__(self, chunkSize=10000000, overlapSize=10000, 
@@ -277,17 +278,6 @@ class BlastIngroupsAndOutgroups(Job):
                                                self.blastOptions, 1))
         self.addFollowOn(CollateBlasts(self.finalResultsFileID,
                                              [ingroupResultFileID, outgroupResultFileID]))
-class WritePermanentFile(Job):
-    """Write a file from the filestore to a permanent path."""
-    def __init__(self, fileID, filePath):
-        Job.__init__(self)
-        self.filePath = filePath
-        self.fileID = fileID
-    def run(self, fileStore):
-        assert fileStore.globalFileExists(self.fileID)
-        fileStore.logToMaster("Writing file %s permanently to disk at %s" % (self.fileID, self.filePath))
-        fileStore.readGlobalFile(self.fileID, self.filePath)
-
 
 class BlastFirstOutgroup(Job):
     """Blast the given sequence(s) against the first of a succession of
@@ -535,7 +525,7 @@ class SortCigarAlignmentsInPlace(Job):
         Job.__init__(self)
         self.cigarFile = cigarFile
     
-    def run(self):
+    def run(self, fileStore):
         tempResultsFile = os.path.join(self.getLocalTempDir(), "tempResults.cig")
         system("cactus_blast_sortAlignments %s %s %i" % (getLogLevelString(), self.cigarFile, tempResultsFile))
         logger.info("Sorted the alignments okay")

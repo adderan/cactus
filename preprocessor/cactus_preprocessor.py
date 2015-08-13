@@ -24,9 +24,11 @@ from sonLib.bioio import newickTreeParser
 from sonLib.bioio import makeSubDir
 from sonLib.bioio import catFiles, getTempFile
 from toil.job import Job
+from toil.lib.bioio import setLoggingFromOptions
+
 from cactus.shared.common import getOptionalAttrib, runCactusAnalyseAssembly
-from sonLib.bioio import setLoggingFromOptions
 from cactus.shared.configWrapper import ConfigWrapper
+from cactus.shared.commonJobs import WritePermanentFile
 
 class PreprocessorOptions:
     def __init__(self, chunkSize, cmdLine, memory, cpu, check, proportionToSample):
@@ -59,7 +61,7 @@ class PreprocessChunk(Job):
         seqPaths = [fileStore.readGlobalFile(fileID) for fileID in self.seqFileIDs]
         
         popenPush(cmdline, " ".join(seqPaths))
-        fileStore.writeGlobalFile(self.outChunkFileID, outChunk)
+        fileStore.updateGlobalFile(self.outChunkFileID, outChunk)
         if self.prepOptions.check:
             fileStore.updateGlobalFile(self.inChunkFileID, outChunk)
 
@@ -90,7 +92,7 @@ class PreprocessSequence(Job):
     def run(self, fileStore):        
         logger.info("Preparing sequence for preprocessing")
         # chunk it up
-        inSequencePath = fileStore.readGlobalFile(self.inSequenceFileID)
+        inSequencePath = fileStore.readGlobalFile(self.inSequenceID)
         inChunkDirectory = makeSubDir(os.path.join(fileStore.getLocalTempDir(), "preprocessChunksIn"))
         inChunkList = [ chunk for chunk in popenCatch("cactus_blast_chunkSequences %s %i 0 %s %s" % \
                (getLogLevelString(), self.prepOptions.chunkSize,
@@ -117,7 +119,7 @@ class PreprocessSequence(Job):
 class BatchPreprocessor(Job):
     def __init__(self, prepXmlElems, inSequenceFileID, 
                  globalOutSequenceFileID, iteration = 0):
-        Job.__init__(self, time=0.0002) 
+        Job.__init__(self) 
         self.prepXmlElems = prepXmlElems
         self.inSequenceFileID = inSequenceFileID
         self.globalOutSequenceFileID = globalOutSequenceFileID
@@ -141,17 +143,17 @@ class BatchPreprocessor(Job):
         #output to temporary directory unless we are on the last iteration
         lastIteration = self.iteration == len(self.prepXmlElems) - 1
         if lastIteration == False:
-            outSeq = fileStore.getEmptyFileStoreID()
+            outSeqID = fileStore.getEmptyFileStoreID()
         else:
-            outSeq = self.globalOutSequenceFileID
+            outSeqID = self.globalOutSequenceFileID
         
         if prepOptions.chunkSize <= 0: #In this first case we don't need to break up the sequence
-            self.addChild(PreprocessChunk(prepOptions, [ self.inSequenceFileID ], 1.0, self.inSequenceFileID, outSeq))
+            self.addChild(PreprocessChunk(prepOptions, [ self.inSequenceFileID ], 1.0, self.inSequenceFileID, outSeqID))
         else:
-            self.addChild(PreprocessSequence(prepOptions, self.inSequenceFileID, outSeq)) 
+            self.addChild(PreprocessSequence(prepOptions, self.inSequenceFileID, outSeqID)) 
         
         if lastIteration == False:
-            self.addFollowOn(BatchPreprocessor(self.prepXmlElems, outSeq,
+            self.addFollowOn(BatchPreprocessor(self.prepXmlElems, outSeqID,
                                                      self.globalOutSequenceFileID, self.iteration + 1))
         else:
             self.addFollowOn(BatchPreprocessorEnd(self.globalOutSequenceFileID))
@@ -184,7 +186,7 @@ class CactusPreprocessor(Job):
         assert len(self.inputSequences) == len(self.outputSequences) #If these are not the same length then we have a problem
         self.configNode = configNode  
     
-    def run(self):
+    def run(self, fileStore):
         for inputSequenceFileOrDirectory, outputSequenceFile in zip(self.inputSequences, self.outputSequences):
             if not os.path.isfile(outputSequenceFile): #Only create the output sequence if it doesn't already exist. This prevents reprocessing if the sequence is used in multiple places between runs.
                 self.addChild(CactusPreprocessor2(inputSequenceFileOrDirectory, outputSequenceFile, self.configNode))
@@ -202,31 +204,34 @@ class CactusPreprocessor2(Job):
     def __init__(self, inputSequenceFileOrDirectory, outputSequenceFile, configNode):
         Job.__init__(self)
         self.inputSequenceFileOrDirectory = inputSequenceFileOrDirectory
-        self.outputSequenceFileID = outputSequenceFileID
+        self.outputSequenceFile = outputSequenceFile
         self.configNode = configNode
         
-    def run(self):
+    def run(self, fileStore):
         #If the files are in a sub-dir then rip them out.
         if os.path.isdir(self.inputSequenceFileOrDirectory):
-            tempFile = getTempFile(rootDir=self.getGlobalTempDir())
+            tempFile = getTempFile(rootDir=fileStore.getLocalTempDir())
             catFiles([ os.path.join(self.inputSequenceFileOrDirectory, f) for f in os.listdir(self.inputSequenceFileOrDirectory)], tempFile)
             inputSequenceFile = tempFile
         else:
             inputSequenceFile = self.inputSequenceFileOrDirectory
             
         assert inputSequenceFile != self.outputSequenceFile
+        inputSequenceFileID = fileStore.writeGlobalFile(inputSequenceFile)
         
         prepXmlElems = self.configNode.findall("preprocessor")
         
         analysisString = runCactusAnalyseAssembly(inputSequenceFile)
-        self.logToMaster("Before running any preprocessing on the assembly: %s got following stats (assembly may be listed as temp file if input sequences from a directory): %s" % \
+        fileStore.logToMaster("Before running any preprocessing on the assembly: %s got following stats (assembly may be listed as temp file if input sequences from a directory): %s" % \
                          (self.inputSequenceFileOrDirectory, analysisString))
         
         if len(prepXmlElems) == 0: #Just cp the file to the output file
             system("cp %s %s" % (inputSequenceFile, self.outputSequenceFile))
         else:
+            outputSequenceFileID = fileStore.getEmptyFileStoreID()
             logger.info("Adding child batch_preprocessor job")
-            self.addChild(BatchPreprocessor(prepXmlElems, inputSequenceFile, self.outputSequenceFile, 0))
+            self.addChild(BatchPreprocessor(prepXmlElems, inputSequenceFileID, outputSequenceFileID, 0))
+            self.addFollowOn(WritePermanentFile(outputSequenceFileID, self.outputSequenceFile))
                     
 def main():
     usage = "usage: %prog outputSequenceDir configXMLFile inputSequenceFastaFilesxN [options]"
@@ -248,7 +253,7 @@ def main():
     if configNode.find("constants") != None:
         ConfigWrapper(configNode).substituteAllPredefinedConstantsWithLiterals()
     
-    Job.Runner().startToil(CactusPreprocessor(inputSequences, CactusPreprocessor.getOutputSequenceFiles(inputSequences, outputSequenceDir), configNode), options)
+    Job.Runner.startToil(CactusPreprocessor(inputSequences, CactusPreprocessor.getOutputSequenceFiles(inputSequences, outputSequenceDir), configNode), options)
 
 def _test():
     import doctest      

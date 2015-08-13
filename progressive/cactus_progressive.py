@@ -55,7 +55,7 @@ class ProgressiveDown(Job):
         self.event = event
         self.schedule = schedule
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Down: " + self.event)
         
         if not self.options.nonRecursive:
@@ -76,7 +76,7 @@ class ProgressiveNext(Job):
         self.event = event
         self.schedule = schedule
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Next: " + self.event)
 
         if not self.schedule.isVirtual(self.event):
@@ -93,7 +93,7 @@ class ProgressiveUp(Job):
         self.project = project
         self.event = event
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Up: " + self.event)
 
         # open up the experiment
@@ -172,7 +172,7 @@ class FinishUp(Job):
         self.workFlowArgs = workFlowArgs
         self.project = project
     
-    def run(self):
+    def run(self, fileStore):
         donePath = os.path.join(os.path.dirname(self.workFlowArgs.experimentFile), "DONE")
         doneFile = open(donePath, "w")
         doneFile.write("")
@@ -184,7 +184,7 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         self.options = options
         self.args = args
         
-    def run(self):
+    def run(self, fileStore):
         #Load the multi-cactus project
         project = MultiCactusProject()
         project.readXML(self.args[0])
@@ -231,7 +231,7 @@ def main():
         parser.print_help()
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
 
-    Job.Runner().startToil(RunCactusPreprocessorThenProgressiveDown(options, args), options)
+    Job.Runner.startToil(RunCactusPreprocessorThenProgressiveDown(options, args), options)
 
 if __name__ == '__main__':
     from cactus.progressive.cactus_progressive import *

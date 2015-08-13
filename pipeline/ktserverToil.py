@@ -159,7 +159,7 @@ class KtserverJobBlocker(Job):
         self.blockTimestep = blockTimestep
         self.killTimeout = killTimeout
         
-    def run(self):
+    def run(self, fileStore):
         if self.isSecondary == False:
             wfArgs = self.newChild.cactusWorkflowArguments
             experiment = ExperimentWrapper(wfArgs.experimentNode)
