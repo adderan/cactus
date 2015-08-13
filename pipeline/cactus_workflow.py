@@ -457,11 +457,11 @@ class CactusCafPhase(CactusPhasesJob):
         #Setup any constraints
         if self.getPhaseIndex() == 0 and self.cactusWorkflowArguments.constraintsFile != None: #Setup the constraints arg
             newConstraintsFile = os.path.join(fileStore.getLocalTempDir(), "constraints.cig")
-            constraintsFile = fileStore.readGlobalFile(self.cactusWorkflowArguments.constraingsFile)
+            constraintsFile = self.cactusWorkflowArguments.constraintsFile
             runCactusConvertAlignmentToCactus(self.cactusWorkflowArguments.cactusDiskDatabaseString,
                                               constraintsFile, newConstraintsFile)
             newConstraintsFileID = fileStore.writeGlobalFile(newConstraintsFile)
-            self.phaseNode.attrib["constraints"] = newConstraintsFileID
+            self.phaseNode.attrib["constraintsID"] = newConstraintsFileID
         if self.getOptionalPhaseAttrib("alignments", default="") != "":
             # An alignment file has been provided (likely from the
             # ingroup vs. outgroup blast stage), so just run caf using
@@ -573,7 +573,7 @@ class CactusBarRecursion(CactusRecursionJob):
     """
     def run(self, fileStore):
         self.makeRecursiveJobs()
-        self.makeExtendingJobs(job=CactusBarWrapper, overlargeJobs=CactusBarWrapperLarge, runFlowerStats=True)
+        self.makeExtendingJobs(job=CactusBarWrapper, overlargeJob=CactusBarWrapperLarge, runFlowerStats=True)
 
 def runBarForJobs(self, calculateWhichEndsToComputeSeparately=None, endAlignmentsToPrecomputeOutputFile=None, precomputedAlignments=None):
     return runCactusBar(cactusDiskDatabaseString=self.cactusDiskDatabaseString, 
@@ -705,7 +705,7 @@ class CactusNormalRecursion(CactusRecursionJob):
     """This job does the down pass for the normal phase.
     """
     def run(self, fileStore):
-        self.makeRecursiveJob()
+        self.makeRecursiveJobs()
         self.makeFollowOnRecursiveJob(CactusNormalRecursion2)
         
 class CactusNormalRecursion2(CactusRecursionJob):
@@ -778,7 +778,7 @@ class CactusReferenceRecursion(CactusRecursionJob):
     """
     def run(self, fileStore):
         self.makeWrapperJobs(CactusReferenceWrapper, runFlowerStats=True)
-        self.makeFollowOnRecursiveJobs(CactusReferenceRecursion2)
+        self.makeFollowOnRecursiveJob(CactusReferenceRecursion2)
         
 class CactusReferenceWrapper(CactusRecursionJob):
     """Actually run the reference code.

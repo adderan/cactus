@@ -42,7 +42,7 @@ class PreprocessorOptions:
 class PreprocessChunk(Job):
     """ locally preprocess a fasta chunk, output then copied back to input
     """
-    def __init__(self, prepOptions, seqFileIDs, proportionSampled, inChunkFileID, outChunkFileID):
+    def __init__(self, prepOptions, seqFileIDs, proportionSampled, inChunkID, outChunkID):
         Job.__init__(self, memory=prepOptions.memory, cpu=prepOptions.cpu)
         self.prepOptions = prepOptions 
         self.seqFileIDs = seqFileIDs
@@ -52,7 +52,7 @@ class PreprocessChunk(Job):
     
     def run(self, fileStore):
         inChunk = fileStore.readGlobalFile(self.inChunkID)
-        outChunk = getTempFile(rootDir = fileStore.getLocalTempFile())
+        outChunk = getTempFile(rootDir = fileStore.getLocalTempDir())
         cmdline = self.prepOptions.cmdLine.replace("IN_FILE", "\"" + inChunk + "\"")
         cmdline = cmdline.replace("OUT_FILE", "\"" + outChunk + "\"")
         cmdline = cmdline.replace("TEMP_DIR", "\"" + fileStore.getLocalTempDir() + "\"")
@@ -61,9 +61,9 @@ class PreprocessChunk(Job):
         seqPaths = [fileStore.readGlobalFile(fileID) for fileID in self.seqFileIDs]
         
         popenPush(cmdline, " ".join(seqPaths))
-        fileStore.updateGlobalFile(self.outChunkFileID, outChunk)
+        fileStore.updateGlobalFile(self.outChunkID, outChunk)
         if self.prepOptions.check:
-            fileStore.updateGlobalFile(self.inChunkFileID, outChunk)
+            fileStore.updateGlobalFile(self.inChunkID, outChunk)
 
 class MergeChunks(Job):
     """ merge a list of chunks into a fasta file
@@ -75,10 +75,10 @@ class MergeChunks(Job):
         self.outSequenceFileID = outSequenceFileID
     
     def run(self, fileStore):
-        outSequenceLocalPath = getTempDir(rootDir = fileStore.getLocalTempDir())
+        outSequenceLocalPath = getTempFile(rootDir = fileStore.getLocalTempDir())
         chunkList = [fileStore.readGlobalFile(fileID) for fileID in self.chunkFileIDList]
-        popenPush("cactus_batch_mergeChunks > %s" % outSequencePath, " ".join(chunkList))
-        fileStore.writeGlobalFile(self.outSequenceFileID, outSequenceLocalPath)
+        popenPush("cactus_batch_mergeChunks > %s" % outSequenceLocalPath, " ".join(chunkList))
+        fileStore.updateGlobalFile(self.outSequenceFileID, outSequenceLocalPath)
  
 class PreprocessSequence(Job):
     """Cut a sequence into chunks, process, then merge
@@ -101,20 +101,20 @@ class PreprocessSequence(Job):
         outChunkIDList = [] 
         inChunkIDList = [fileStore.writeGlobalFile(chunk) for chunk in inChunkList]
         #For each input chunk we create an output chunk, it is the output chunks that get concatenated together.
-        for i in xrange(len(inChunkList)):
+        for i in xrange(len(inChunkIDList)):
             outChunkIDList.append(fileStore.getEmptyFileStoreID())
             #Calculate the number of chunks to use
-            inChunkNumber = int(max(1, math.ceil(len(inChunkList) * self.prepOptions.proportionToSample)))
-            assert inChunkNumber <= len(inChunkList) and inChunkNumber > 0
+            inChunkNumber = int(max(1, math.ceil(len(inChunkIDList) * self.prepOptions.proportionToSample)))
+            assert inChunkNumber <= len(inChunkIDList) and inChunkNumber > 0
             #Now get the list of chunks flanking and including the current chunk
             j = max(0, i - inChunkNumber/2)
             inChunkIDs = inChunkIDList[j:j+inChunkNumber]
-            if len(inChunks) < inChunkNumber: #This logic is like making the list circular
-                inChunkIDs += inChunkIDList[:inChunkNumber-len(inChunks)]
-            assert len(inChunks) == inChunkNumber
-            self.addChild(PreprocessChunk(self.prepOptions, inChunkIDs, float(inChunkNumber)/len(inChunkList), inChunkIDList[i], outChunkIDList[i]))
+            if len(inChunkIDs) < inChunkNumber: #This logic is like making the list circular
+                inChunkIDs += inChunkIDList[:inChunkNumber-len(inChunkIDs)]
+            assert len(inChunkIDs) == inChunkNumber
+            self.addChild(PreprocessChunk(self.prepOptions, inChunkIDs, float(inChunkNumber)/len(inChunkIDList), inChunkIDList[i], outChunkIDList[i]))
         # follow on to merge chunks
-        self.addFollowOn(MergeChunks(self.prepOptions, outChunkIDList, self.outSequenceFileID))
+        self.addFollowOn(MergeChunks(self.prepOptions, outChunkIDList, self.outSequenceID))
 
 class BatchPreprocessor(Job):
     def __init__(self, prepXmlElems, inSequenceFileID, 
@@ -166,7 +166,7 @@ class BatchPreprocessorEnd(Job):
     def run(self, fileStore):
         globalOutSequence = fileStore.readGlobalFile(self.globalOutSequenceFileID)
         analysisString = runCactusAnalyseAssembly(globalOutSequence)
-        self.logToMaster("After preprocessing assembly we got the following stats: %s" % analysisString)
+        fileStore.logToMaster("After preprocessing assembly we got the following stats: %s" % analysisString)
 
 ############################################################
 ############################################################
