@@ -38,7 +38,6 @@ class TestCase(unittest.TestCase):
         self.configNode = ET.parse(self.configFile).getroot()
         self.barNode = self.configNode.find("bar")
         assert self.barNode != None
-    @unittest.skip("")
     def testCactus_random(self):
         runWorkflow_multipleExamples(getCactusInputs_random, 
                                      testNumber=5,
