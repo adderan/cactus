@@ -59,8 +59,10 @@ class PreprocessChunk(Job):
         cmdline = cmdline.replace("PROPORTION_SAMPLED", str(self.proportionSampled))
         logger.info("Preprocessor exec " + cmdline)
         seqPaths = [fileStore.readGlobalFile(fileID) for fileID in self.seqFileIDs]
+        assert len(seqPaths) > 0
         
         popenPush(cmdline, " ".join(seqPaths))
+        assert len(open(outChunk).readlines()) > 0
         fileStore.updateGlobalFile(self.outChunkID, outChunk)
         if self.prepOptions.check:
             fileStore.updateGlobalFile(self.inChunkID, outChunk)
@@ -165,6 +167,7 @@ class BatchPreprocessorEnd(Job):
         
     def run(self, fileStore):
         globalOutSequence = fileStore.readGlobalFile(self.globalOutSequenceFileID)
+        assert len(open(globalOutSequence).readlines()) > 0
         analysisString = runCactusAnalyseAssembly(globalOutSequence)
         fileStore.logToMaster("After preprocessing assembly we got the following stats: %s" % analysisString)
 
@@ -217,6 +220,7 @@ class CactusPreprocessor2(Job):
             inputSequenceFile = self.inputSequenceFileOrDirectory
             
         assert inputSequenceFile != self.outputSequenceFile
+        assert len(open(inputSequenceFile).readlines()) > 0
         inputSequenceFileID = fileStore.writeGlobalFile(inputSequenceFile)
         
         prepXmlElems = self.configNode.findall("preprocessor")

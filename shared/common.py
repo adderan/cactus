@@ -528,3 +528,4 @@ def runCactusFastaGenerator(cactusDiskDatabaseString,
     
 def runCactusAnalyseAssembly(sequenceFile):
     return popenCatch("cactus_analyseAssembly %s" % sequenceFile)[:-1]
+

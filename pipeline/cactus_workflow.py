@@ -25,7 +25,6 @@ from sonLib.bioio import getTempFile
 from sonLib.bioio import newickTreeParser
 
 from sonLib.bioio import logger
-#from sonLib.bioio import setLoggingFromOptions
 from sonLib.bioio import system
 from sonLib.bioio import makeSubDir
 
@@ -421,6 +420,8 @@ class CactusSetupPhase(CactusPhasesJob):
 class CactusSetupPhase2(CactusPhasesJob):   
     def run(self, fileStore):        
         #Now run setup
+        seqFiles = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode).getSequences()
+        logger.debug("Sequence files: %s\n" % (",".join(seqFiles)))
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString, 
                        sequences=ExperimentWrapper(self.cactusWorkflowArguments.experimentNode).getSequences(),
                        newickTreeString=self.cactusWorkflowArguments.speciesTree, 
@@ -458,10 +459,11 @@ class CactusCafPhase(CactusPhasesJob):
         if self.getPhaseIndex() == 0 and self.cactusWorkflowArguments.constraintsFile != None: #Setup the constraints arg
             newConstraintsFile = os.path.join(fileStore.getLocalTempDir(), "constraints.cig")
             constraintsFile = self.cactusWorkflowArguments.constraintsFile
+            logger.info("contraints file: %s" % constraintsFile)
             runCactusConvertAlignmentToCactus(self.cactusWorkflowArguments.cactusDiskDatabaseString,
                                               constraintsFile, newConstraintsFile)
             newConstraintsFileID = fileStore.writeGlobalFile(newConstraintsFile)
-            self.phaseNode.attrib["constraintsID"] = newConstraintsFileID
+            self.phaseNode.attrib["constraints"] = newConstraintsFileID
         if self.getOptionalPhaseAttrib("alignments", default="") != "":
             # An alignment file has been provided (likely from the
             # ingroup vs. outgroup blast stage), so just run caf using
@@ -492,11 +494,13 @@ class CactusCafRecursion(CactusRecursionJob):
 class CactusCafWrapper(CactusRecursionJob):
     """Runs cactus_core upon a set of flowers and no alignment file.
     """
-    def runCactusCafInWorkflow(self, fileStore, alignments):
+    def runCactusCafInWorkflow(self, fileStore, alignmentIDs):
+        alignments = [fileStore.readGlobalFile(fileID) for fileID in alignmentIDs]
+        constraints = fileStore.readGlobalFile(self.getOptionalPhaseAttrib["constraintsID"])
         messages = runCactusCaf(cactusDiskDatabaseString=self.cactusDiskDatabaseString,
                           alignments=alignments, 
                           flowerNames=self.flowerNames,
-                          constraints=self.getOptionalPhaseAttrib("constraints"),  
+                          constraints=constraints,  
                           annealingRounds=self.getOptionalPhaseAttrib("annealingRounds"),  
                           deannealingRounds=self.getOptionalPhaseAttrib("deannealingRounds"),
                           trim=self.getOptionalPhaseAttrib("trim"),
@@ -519,7 +523,7 @@ class CactusCafWrapper(CactusRecursionJob):
             fileStore.logToMaster(message)
     
     def run(self, fileStore):
-        self.runCactusCafInWorkflow(fileStore, alignments=None)
+        self.runCactusCafInWorkflow(fileStore, alignmentIDs=None)
        
 class CactusCafWrapperLarge(CactusRecursionJob):
     """Runs blast on the given flower and passes the resulting alignment to cactus core.
@@ -529,7 +533,6 @@ class CactusCafWrapperLarge(CactusRecursionJob):
         #Generate a temporary file to hold the alignments
         #alignmentFile = os.path.join(fileStore.getGlobalTempDir(), "alignments.cigar")
         alignmentFile = os.path.join(fileStore.getLocalTempDir(), "alignments.cigar")
-        alignmentFileID = fileStore.writeGlobalFile(alignmentFile)
         flowerName = decodeFirstFlowerName(self.flowerNames)
         self.addChild(BlastFlower(self.cactusDiskDatabaseString, 
                                           flowerName, alignmentFileID, 
@@ -543,6 +546,7 @@ class CactusCafWrapperLarge(CactusRecursionJob):
                                                         memory=self.getOptionalPhaseAttrib("lastzMemory", int, sys.maxint),
                                                         minimumSequenceLength=self.getOptionalPhaseAttrib("minimumSequenceLengthForBlast", int, 1))))
         #Now setup a call to cactus core wrapper as a follow on
+        alignmentFileID = fileStore.writeGlobalFile(alignmentFile)
         self.phaseNode.attrib["alignments"] = alignmentFileID
         self.makeFollowOnRecursiveJob(CactusCafWrapperLarge2)
         
@@ -1035,6 +1039,7 @@ class RunCactusPreprocessorThenCactusSetup(Job):
         cactusWorkflowArguments=CactusWorkflowArguments(self.options)
         eW = ExperimentWrapper(cactusWorkflowArguments.experimentNode)
         outputSequenceFiles = CactusPreprocessor.getOutputSequenceFiles(eW.getSequences(), eW.getOutputSequenceDir())
+        logger.info("using sequence files: %s" % ",".join(outputSequenceFiles))
         self.addChild(CactusPreprocessor(eW.getSequences(), outputSequenceFiles, cactusWorkflowArguments.configNode))
         #Now make the setup, replacing the input sequences with the preprocessed sequences
         eW.setSequences(outputSequenceFiles)
@@ -1045,7 +1050,6 @@ class RunCactusPreprocessorThenCactusSetup(Job):
         else:
             self.addFollowOn(CactusSetupPhase(cactusWorkflowArguments=cactusWorkflowArguments,
                                                     phaseName="setup"))
-        
 def main():
     ##########################################
     #Construct the arguments.

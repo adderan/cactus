@@ -294,7 +294,7 @@ def runWorkflow_TestScript(sequences, newickTreeString,
     experiment.writeXML(experimentFile)
     logger.info("The experiment file %s\n" % experimentFile)
    
-    #Setup the job tree dir.
+    #Setup the toil dir.
     toilDir = os.path.join(outputDir, "toil")
     logger.info("Got a job tree dir for the test: %s" % toilDir)
     
@@ -365,5 +365,5 @@ def runWorkflow_multipleExamples(inputGenFunction,
                                                 progressive=progressive,
                                                 cactusWorkflowFunction=cactusWorkflowFunction)
             experiment.cleanupDb()
-            system("rm -rf %s" % tempDir)
+            #system("rm -rf %s" % tempDir)
             logger.info("Finished random test %i" % test)
