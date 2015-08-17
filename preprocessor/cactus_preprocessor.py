@@ -29,6 +29,7 @@ from toil.lib.bioio import setLoggingFromOptions
 from cactus.shared.common import getOptionalAttrib, runCactusAnalyseAssembly
 from cactus.shared.configWrapper import ConfigWrapper
 from cactus.shared.commonJobs import WritePermanentFile
+from cactus.shared.commonJobs import WriteToFilestore
 
 class PreprocessorOptions:
     def __init__(self, chunkSize, cmdLine, memory, cpu, check, proportionToSample):
@@ -53,19 +54,24 @@ class PreprocessChunk(Job):
     def run(self, fileStore):
         inChunk = fileStore.readGlobalFile(self.inChunkID)
         outChunk = getTempFile(rootDir = fileStore.getLocalTempDir())
+        #if the "check" option is set, this will just check the chunk and rewrite
+        #it in place, so IN_FILE is the only command line argument that is used.
+        #Otherwise this runs lastz_repeat mask and the OUT_FILE argument becomes relevant.
         cmdline = self.prepOptions.cmdLine.replace("IN_FILE", "\"" + inChunk + "\"")
         cmdline = cmdline.replace("OUT_FILE", "\"" + outChunk + "\"")
         cmdline = cmdline.replace("TEMP_DIR", "\"" + fileStore.getLocalTempDir() + "\"")
         cmdline = cmdline.replace("PROPORTION_SAMPLED", str(self.proportionSampled))
         logger.info("Preprocessor exec " + cmdline)
         seqPaths = [fileStore.readGlobalFile(fileID) for fileID in self.seqFileIDs]
-        assert len(seqPaths) > 0
         
         popenPush(cmdline, " ".join(seqPaths))
-        assert len(open(outChunk).readlines()) > 0
-        fileStore.updateGlobalFile(self.outChunkID, outChunk)
         if self.prepOptions.check:
-            fileStore.updateGlobalFile(self.inChunkID, outChunk)
+            fileStore.updateGlobalFile(self.outChunkID, inChunk)
+            assert len(open(inChunk).readlines()) > 0
+        else:
+            fileStore.updateGlobalFile(self.outChunkID, outChunk)
+            assert len(open(outChunk).readlines()) > 0
+
 
 class MergeChunks(Job):
     """ merge a list of chunks into a fasta file
@@ -167,13 +173,12 @@ class BatchPreprocessorEnd(Job):
         
     def run(self, fileStore):
         globalOutSequence = fileStore.readGlobalFile(self.globalOutSequenceFileID)
-        assert len(open(globalOutSequence).readlines()) > 0
         analysisString = runCactusAnalyseAssembly(globalOutSequence)
         fileStore.logToMaster("After preprocessing assembly we got the following stats: %s" % analysisString)
 
 ############################################################
 ############################################################
-############################################################
+######j####################################################
 ##The preprocessor phase, which modifies the input sequences
 ############################################################
 ############################################################
@@ -186,11 +191,12 @@ class CactusPreprocessor(Job):
         Job.__init__(self)
         self.inputSequences = inputSequences
         self.outputSequences = outputSequences
-        assert len(self.inputSequences) == len(self.outputSequences) #If these are not the same length then we have a problem
         self.configNode = configNode  
+        assert len(self.inputSequences) == len(self.outputSequences) #If these are not the same length then we have a problem
     
     def run(self, fileStore):
         for inputSequenceFileOrDirectory, outputSequenceFile in zip(self.inputSequences, self.outputSequences):
+
             if not os.path.isfile(outputSequenceFile): #Only create the output sequence if it doesn't already exist. This prevents reprocessing if the sequence is used in multiple places between runs.
                 self.addChild(CactusPreprocessor2(inputSequenceFileOrDirectory, outputSequenceFile, self.configNode))
   
@@ -201,8 +207,10 @@ class CactusPreprocessor(Job):
         if not os.path.isdir(outputSequenceDir):
             os.mkdir(outputSequenceDir)
         return [ os.path.join(outputSequenceDir, inputSequences[i].split("/")[-1] + "_%i" % i) for i in xrange(len(inputSequences)) ]
-        #return [ os.path.join(outputSequenceDir, "_".join(inputSequence.split("/"))) for inputSequence in inputSequences ]
-  
+
+
+#runs the preprocessor on one input sequence, or one directory containing several
+#input sequences
 class CactusPreprocessor2(Job):
     def __init__(self, inputSequenceFileOrDirectory, outputSequenceFile, configNode):
         Job.__init__(self)
@@ -218,7 +226,7 @@ class CactusPreprocessor2(Job):
             inputSequenceFile = tempFile
         else:
             inputSequenceFile = self.inputSequenceFileOrDirectory
-            
+
         assert inputSequenceFile != self.outputSequenceFile
         assert len(open(inputSequenceFile).readlines()) > 0
         inputSequenceFileID = fileStore.writeGlobalFile(inputSequenceFile)
@@ -232,8 +240,8 @@ class CactusPreprocessor2(Job):
         if len(prepXmlElems) == 0: #Just cp the file to the output file
             system("cp %s %s" % (inputSequenceFile, self.outputSequenceFile))
         else:
-            outputSequenceFileID = fileStore.getEmptyFileStoreID()
             logger.info("Adding child batch_preprocessor job")
+            outputSequenceFileID = fileStore.getEmptyFileStoreID()
             self.addChild(BatchPreprocessor(prepXmlElems, inputSequenceFileID, outputSequenceFileID, 0))
             self.addFollowOn(WritePermanentFile(outputSequenceFileID, self.outputSequenceFile))
                     

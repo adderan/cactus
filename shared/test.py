@@ -305,7 +305,7 @@ def runWorkflow_TestScript(sequences, newickTreeString,
                       buildHal=buildHal,
                       buildFasta=buildFasta,
                       toilStats=buildToilStats)
-    logger.info("Ran the the workflow")
+    logger.info("Ran the workflow")
     
     #Check if the toil completed sucessively.
     runToilStatusAndFailIfNotComplete(toilDir)

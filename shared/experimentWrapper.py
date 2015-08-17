@@ -196,7 +196,7 @@ class ExperimentWrapper(DbElemWrapper):
         confElem = self.diskElem.find("st_kv_database_conf")
         super(ExperimentWrapper, self).__init__(confElem)
         self.xmlRoot = xmlRoot
-        self.seqMap = self.buildSequenceMap()
+        #self.seqMap = self.buildSequenceMap()
         
     @staticmethod
     def createExperimentWrapper(sequences, newickTreeString, outputDir,
@@ -208,7 +208,7 @@ class ExperimentWrapper(DbElemWrapper):
         #Establish the basics
         rootElem =  ET.Element("cactus_workflow_experiment")
         rootElem.attrib['species_tree'] = newickTreeString
-        rootElem.attrib['sequences'] = " ".join(sequences)
+        rootElem.attrib['inputSequencePaths'] = " ".join(sequences)
         #Stuff for the database
         database = ET.SubElement(rootElem, "cactus_disk")
         if databaseConf != None:
@@ -265,14 +265,21 @@ class ExperimentWrapper(DbElemWrapper):
         treeString = self.xmlRoot.attrib["species_tree"]
         return NXNewick().parseString(treeString, addImpliedRoots = False)
     
-    def setSequences(self, sequences):
-        self.xmlRoot.attrib["sequences"] = " ".join(sequences)
+    def setSequenceIDs(self, sequenceIDs):
+        self.xmlRoot.attrib["sequenceIDs"] = " ".join(sequenceIDs)
         self.seqMap = self.buildSequenceMap()
+    def getSequenceIDs(self):
+        return self.xmlRoot.attrib["sequenceIDs"].split()
     
-    def getSequences(self):
-        return self.xmlRoot.attrib["sequences"].split()
+    #get the input sequences that are stored in permanent files (not in the
+    #fileStore)
+    def getInputSequencePaths(self):
+        return self.xmlRoot.attrib["inputSequencePaths"].split()
+
+    def setInputSequencePaths(self, sequencePaths):
+        self.xmlRoot.attrib["inputSequencePaths"] = " ".join(sequencePaths)
     
-    def getSequence(self, event):
+    def getSequenceID(self, event):
         return self.seqMap[event]
     
     def getReferencePath(self):
@@ -325,7 +332,7 @@ class ExperimentWrapper(DbElemWrapper):
             halElem = ET.Element("hal")
             self.xmlRoot.append(halElem)
         halElem.attrib["fastaPath"] = path
-        
+
     def setConstraintsFilePath(self, path):
         self.xmlRoot.attrib["constraints"] = path
     
@@ -387,10 +394,10 @@ class ExperimentWrapper(DbElemWrapper):
         secondaryDb = ET.SubElement(secondaryConf, dbElemWrapper.getDbType(),
                                     dbAttrib)
     
-    # map event names to sequence paths
+    # map event names to sequence IDs
     def buildSequenceMap(self):
         tree = self.getTree()
-        sequenceString = self.xmlRoot.attrib["sequences"]
+        sequenceString = self.xmlRoot.attrib["sequenceIDs"]
         sequences = sequenceString.split()
         nameIterator = iter(sequences)
         seqMap = dict()
@@ -407,15 +414,15 @@ class ExperimentWrapper(DbElemWrapper):
         newMap = dict()
         treeString = NXNewick().writeString(tree)
         self.xmlRoot.attrib["species_tree"] = treeString
-        sequences = "" 
+        sequenceIDs = "" 
         for node in tree.postOrderTraversal():
             if tree.isLeaf(node):
                 nodeName = tree.getName(node)
                 if len(sequences) > 0:
-                    sequences += " "                  
-                sequences += seqMap[nodeName]
+                    sequenceIDs += " "                  
+                sequenceIDs += seqMap[nodeName]
                 newMap[nodeName] = seqMap[nodeName]
-        self.xmlRoot.attrib["sequences"] = sequences
+        self.xmlRoot.attrib["sequenceIDs"] = sequenceIDs
         self.seqMap = newMap
     
     # Adds an additional single outgroup sequence to the experiment. 
@@ -424,11 +431,11 @@ class ExperimentWrapper(DbElemWrapper):
         tree = MultiCactusTree(self.getTree())
         tree.addOutgroup(ogName, ogDist)
         self.xmlRoot.attrib["species_tree"] = NXNewick().writeString(tree)   
-        seqs = "%s %s"  % (self.xmlRoot.attrib["sequences"], ogPath)
-        self.xmlRoot.attrib["sequences"] = seqs
+        seqIDs = "%s %s"  % (self.xmlRoot.attrib["sequenceIDs"], ogPath)
+        self.xmlRoot.attrib["sequenceIDs"] = seqIDs
         self.seqMap[ogName] = ogPath
         self.setOutgroupEvents(self.getOutgroupEvents() + [ogName])
 
-    # return internal structure that maps event names to paths
+    # return internal structure that maps event names to fileStore IDs
     def getSequenceMap(self):
         return self.seqMap

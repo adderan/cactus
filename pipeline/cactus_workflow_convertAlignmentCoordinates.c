@@ -48,7 +48,6 @@ static stHash *makeSequenceHeaderToCapHash(CactusDisk *cactusDisk) {
 
 static void convertCoordinates(struct PairwiseAlignment *pairwiseAlignment, FILE *outputCigarFileHandle,
         stHash *sequenceHeaderToCapHash) {
-    st_errAbort("length of hash: %d\n", stHash_size(sequenceHeaderToCapHash));
     Cap *cap1 = stHash_search(sequenceHeaderToCapHash, pairwiseAlignment->contig1);
     Cap *cap2 = stHash_search(sequenceHeaderToCapHash, pairwiseAlignment->contig2);
     if (cap1 == NULL) {

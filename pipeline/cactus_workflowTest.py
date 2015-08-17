@@ -38,7 +38,6 @@ class TestCase(unittest.TestCase):
         self.configNode = ET.parse(self.configFile).getroot()
         self.barNode = self.configNode.find("bar")
         assert self.barNode != None
-    @unittest.skip("")
     def testCactus_random(self):
         runWorkflow_multipleExamples(getCactusInputs_random, 
                                      testNumber=5,
@@ -52,32 +51,27 @@ class TestCase(unittest.TestCase):
                                      buildAvgs=True, buildReference=True,
                                      batchSystem=self.batchSystem, buildToilStats=True,
                                      useConstraints=True)
-    @unittest.skip("")
     def testCactus_blanchette(self):
         runWorkflow_multipleExamples(getCactusInputs_blanchette, 
                                      testNumber=1,
                                      testRestrictions=(TestStatus.TEST_MEDIUM,),
                                      buildAvgs=True, buildReference=True,
                                      batchSystem=self.batchSystem, buildToilStats=True)
-    @unittest.skip("")
     def testCactus_encode(self): 
         runWorkflow_multipleExamples(getCactusInputs_encode, 
                                      testNumber=1,
                                      testRestrictions=(TestStatus.TEST_LONG,),
                                      buildAvgs=True, buildReference=True,
                                      batchSystem=self.batchSystem, buildToilStats=True)
-    @unittest.skip("")
     def testCactus_chromosomes(self):
         runWorkflow_multipleExamples(getCactusInputs_chromosomeX, 
                                      testRestrictions=(TestStatus.TEST_VERY_LONG,),
                                      batchSystem=self.batchSystem, buildToilStats=True)
-    @unittest.skip("")
     def testGetOptionalAttrib(self):
         self.assertEquals("0", getOptionalAttrib(self.barNode, "minimumBlockDegree"))
         self.assertEquals(0, getOptionalAttrib(self.barNode, "minimumBlockDegree", typeFn=int, default=1))
         self.assertEquals(None, getOptionalAttrib(self.barNode, "doesntExist"))
         self.assertEquals(1, getOptionalAttrib(self.barNode, "doesntExist", typeFn=int, default=1))
-    @unittest.skip("")
     def testFindRequiredNode(self):
         self.assertEquals(findRequiredNode(self.configNode, "bar"), self.barNode)
         try:
@@ -91,7 +85,6 @@ class TestCase(unittest.TestCase):
             self.assertTrue(0)
         except:
             pass
-    @unittest.skip("")
     def testExtractNode(self):
         subNode = ET.SubElement(self.barNode, "CactusSetReferenceCoordinatesDownRecursion", { "memory":"10" })
         barNodeCopy = extractNode(self.barNode)
@@ -104,7 +97,6 @@ class TestCase(unittest.TestCase):
         subNodeCopy = barNodeCopy.find("CactusSetReferenceCoordinatesDownRecursion")
         self.assertTrue(subNodeCopy != None)
         self.assertEquals("10", subNodeCopy.attrib["memory"])
-    @unittest.skip("")
     def testGetJobNode(self):
         class CactusTestJob(CactusJob):
             pass
@@ -115,7 +107,6 @@ class TestCase(unittest.TestCase):
         self.assertEquals(None, getJobNode(self.barNode, CactusTestJob2))
         node2 = ET.SubElement(self.barNode, "CactusSetReferenceCoordinatesDownRecursion")
         self.assertEquals(node2, getJobNode(self.barNode, CactusSetReferenceCoordinatesDownRecursion))
-    @unittest.skip("")
     def testCactusJob(self):
         class CactusTestJob(CactusJob):
             pass
@@ -138,12 +129,10 @@ class TestCase(unittest.TestCase):
         self.assertEquals(job.jobNode, None)
         self.assertEquals(job.memory, sys.maxint)
         self.assertEquals(job.cpu, sys.maxint)
-    @unittest.skip("")
     def testGetLongestPath(self):
         self.assertAlmostEquals(getLongestPath(newickTreeParser("(b(a:0.5):0.5,b(a:1.5):0.5)")), 2.0)
         self.assertAlmostEquals(getLongestPath(newickTreeParser("(b(a:0.5):0.5,b(a:1.5,c:10):0.5)")), 10.5)
         self.assertAlmostEquals(getLongestPath(newickTreeParser("(b(a:0.5):0.5,b(a:1.5,c:10,e,f:20):0.5)")), 20.5)
-    @unittest.skip("")
     def testInverseJukesCantor(self):
         self.assertAlmostEquals(inverseJukesCantor(0.5), 0.36493716072555599)
         self.assertAlmostEquals(inverseJukesCantor(1.0), 0.55230214641320496)
