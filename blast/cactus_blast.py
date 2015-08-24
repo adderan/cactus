@@ -77,6 +77,9 @@ class BlastFlower(Job):
                                                           self.blastOptions.minimumSequenceLength,
                                                           chunksDir)).split("\n") if chunk != "" ]
         logger.info("Broken up the flowers into individual 'chunk' files")
+        assert len(chunks) > 0
+        for chunk in chunks:
+            assert len(open(chunk).readlines()) > 0
         chunkIDs = [fileStore.writeGlobalFile(path) for path in chunks]
         self.addChild(MakeBlastsAllAgainstAll(self.blastOptions, chunkIDs, self.finalResultsFileID))
         
@@ -452,17 +455,19 @@ class RunSelfBlast(Job):
     def run(self, fileStore):
         assert fileStore.globalFileExists(self.seqFileID)
         seqFile = fileStore.readGlobalFile(self.seqFileID)
+        assert len(open(seqFile).readlines()) > 1
         assert os.path.exists(seqFile)
-        #tempResultsFile = getTempFile(rootDir = fileStore.getLocalTempDir())
-        tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
+        tempResultsFile = getTempFile(rootDir = fileStore.getLocalTempDir())
+        #tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.selfBlastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE", seqFile)
-        system("echo %s > /home/alden/blastcommand.txt" % command)
         system(command)
         assert os.path.exists(tempResultsFile)
+        assert len(open(tempResultsFile).readlines()) > 0
         tempResultsConvertedFile = os.path.join(fileStore.getLocalTempDir(), "tempResultsConverted.cig")
         system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, tempResultsConvertedFile, self.blastOptions.roundsOfCoordinateConversion))
         fileStore.updateGlobalFile(self.resultsFileID, tempResultsConvertedFile)
         assert os.path.exists(tempResultsConvertedFile)
+        assert len(open(tempResultsConvertedFile).readlines()) > 0
         if self.blastOptions.compressFiles:
             compressFastaFile(seqFile)
             fileStore.updateGlobalFile(self.seqFileID, seqFile)
@@ -490,6 +495,7 @@ class RunBlast(Job):
         assert fileStore.globalFileExists(self.seqFile2ID)
         seqFile1 = fileStore.readGlobalFile(self.seqFile1ID)
         seqFile2 = fileStore.readGlobalFile(self.seqFile2ID)
+        assert len(open(seqFile1).readlines()) > 0
         if self.blastOptions.compressFiles:
             seqFile1 = decompressFastaFile(seqFile1, os.path.join(fileStore.getLocalTempDir(), "1.fa"))
             seqFile2 = decompressFastaFile(seqFile2, os.path.join(fileStore.getLocalTempDir(), "2.fa"))
@@ -499,6 +505,7 @@ class RunBlast(Job):
         tempConvertedResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResulsConverted.cig")
         system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, tempConvertedResultsFile, self.blastOptions.roundsOfCoordinateConversion))
         fileStore.updateGlobalFile(self.resultsFileID, tempConvertedResultsFile)
+        assert len(open(tempConvertedResultsFile).readlines()) > 0
         logger.info("Ran the blast okay")
 
 class CollateBlasts(Job):
@@ -513,8 +520,10 @@ class CollateBlasts(Job):
         for fileID in self.resultsFileIDs:
             assert fileStore.globalFileExists(fileID)
         resultsFiles = [fileStore.readGlobalFile(fileID) for fileID in self.resultsFileIDs]
+        assert len(open(resultsFiles[0]).readlines()) > 0
         finalResultsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
         catFiles(resultsFiles, finalResultsFile)
+        assert len(open(finalResultsFile).readlines()) > 0
         fileStore.updateGlobalFile(self.finalResultsFileID, finalResultsFile)
         logger.info("Collated the alignments to the file: %s",  self.finalResultsFileID)
         
