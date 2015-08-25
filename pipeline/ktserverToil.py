@@ -124,7 +124,7 @@ class KtserverJobLauncher(Job):
     def __init__(self, dbElem, killSwitchFileID,
                  maxMemory, maxCpu, createTimeout,
                  loadTimeout, runTimeout, runTimestep):
-        Job.__init__(self, memory=maxMemory, cpu=maxCpu)
+        Job.__init__(self, memory=maxMemory, cores=maxCpu)
         self.dbElem = dbElem
         self.killSwitchFileID = killSwitchFileID
         self.createTimeout = createTimeout
@@ -133,23 +133,21 @@ class KtserverJobLauncher(Job):
         self.runTimestep = runTimestep
         
     def run(self, fileStore):
-        self.logToMaster("Launching ktserver %s with killPath %s" % (
+        fileStore.logToMaster("Launching ktserver %s with killPath %s" % (
             ET.tostring(self.dbElem.getDbElem()), self.killSwitchFileID))
-        killSwitchPath = fileStore.readGlobalFile(killSwitchFileID)
-        runKtserver(self.dbElem, killSwitchPath,
+        runKtserver(self.dbElem, self.killSwitchFileID, fileStore,
                     maxPortsToTry=100, readOnly = False,
                     createTimeout=self.createTimeout,
                     loadTimeout=self.loadTimeout,
                     killTimeout=self.runTimeout,
                     killPingInterval=self.runTimestep)
-        fileStore.updateGlobalFile(self.killSwitchFileID, killSwitchPath)
 
 ###############################################################################
 # Block until the server's detected.
-# Run the child target as a child, and kill the server in a follow-on
+# Run the child job as a child, and kill the server in a follow-on
 ###############################################################################
 class KtserverJobBlocker(Job):
-    def __init__(self, killSwitchPath, newChild, isSecondary,
+    def __init__(self, killSwitchFileID, newChild, isSecondary,
                  blockTimeout, blockTimestep, killTimeout):
         Job.__init__(self)
         self.killSwitchFileID = killSwitchFileID
@@ -171,7 +169,7 @@ class KtserverJobBlocker(Job):
             confXML = ET.fromstring(dbString)
             dbElem = DbElemWrapper(confXML)
 
-        self.logToMaster("Blocking on ktserver %s with killSwitchFileID %s" % (
+        fileStore.logToMaster("Blocking on ktserver %s with killSwitchFileID %s" % (
             ET.tostring(dbElem.getDbElem()), self.killSwitchFileID))
             
         blockUntilKtserverIsRunnning(dbElem, self.killSwitchFileID,
@@ -206,10 +204,10 @@ class KtserverJobKiller(Job):
         self.killTimeout = killTimeout
         
     def run(self, fileStore):
-        self.logToMaster("Killing ktserver %s with killSwitchFileID %s" % (
+        fileStore.logToMaster("Killing ktserver %s with killSwitchFileID %s" % (
             ET.tostring(self.dbElem.getDbElem()), self.killSwitchFileID))
         report = getKtServerReport(self.dbElem)
-        self.logToMaster(report)
+        fileStore.logToMaster(report)
         killKtServer(self.dbElem, killSwitchFileID, fileStore,
                      killTimeout=self.killTimeout)
     

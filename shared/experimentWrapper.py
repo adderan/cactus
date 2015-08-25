@@ -426,7 +426,7 @@ class ExperimentWrapper(DbElemWrapper):
                 nodeName = tree.getName(node)
                 if len(sequenceIDs) > 0:
                     sequenceIDs += " "
-                sequnceIDs += seqIDMap[nodeName]
+                sequenceIDs += seqIDMap[nodeName]
                 newIDMap[nodeName] = seqIDMap[nodeName]
         self.xmlRoot.attrib["sequenceIDs"] = sequenceIDs
         self.seqIDMap = newIDMap

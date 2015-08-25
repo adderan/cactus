@@ -8,6 +8,7 @@ sequences. Uses the Toil framework to parallelise the blasts.
 """
 import os
 import sys
+import shutil
 from optparse import OptionParser
 from sonLib.bioio import TempFileTree
 from sonLib.bioio import logger

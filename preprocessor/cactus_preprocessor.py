@@ -36,7 +36,7 @@ class PreprocessorOptions:
         self.chunkSize = chunkSize
         self.cmdLine = cmdLine
         self.memory = memory
-        self.cpu = cpu
+        self.cores = cpu
         self.check = check
         self.proportionToSample=proportionToSample
 
@@ -44,7 +44,7 @@ class PreprocessChunk(Job):
     """ locally preprocess a fasta chunk, output then copied back to input
     """
     def __init__(self, prepOptions, seqFileIDs, proportionSampled, inChunkID, outChunkID):
-        Job.__init__(self, memory=prepOptions.memory, cpu=prepOptions.cpu)
+        Job.__init__(self, memory=prepOptions.memory, cores=prepOptions.cores)
         self.prepOptions = prepOptions 
         self.seqFileIDs = seqFileIDs
         self.inChunkID = inChunkID
@@ -77,7 +77,7 @@ class MergeChunks(Job):
     """ merge a list of chunks into a fasta file
     """
     def __init__(self, prepOptions, chunkFileIDList, outSequenceFileID):
-        Job.__init__(self, cpu=prepOptions.cpu)
+        Job.__init__(self, cores=prepOptions.cores)
         self.prepOptions = prepOptions 
         self.chunkFileIDList = chunkFileIDList
         self.outSequenceFileID = outSequenceFileID
@@ -92,7 +92,7 @@ class PreprocessSequence(Job):
     """Cut a sequence into chunks, process, then merge
     """
     def __init__(self, prepOptions, inSequenceFileID, outSequenceFileID):
-        Job.__init__(self, cpu=prepOptions.cpu)
+        Job.__init__(self, cores=prepOptions.cores)
         self.prepOptions = prepOptions 
         self.inSequenceID = inSequenceFileID
         self.outSequenceID = outSequenceFileID
@@ -133,7 +133,7 @@ class BatchPreprocessor(Job):
         self.globalOutSequenceFileID = globalOutSequenceFileID
         prepNode = self.prepXmlElems[iteration]
         self.memory = getOptionalAttrib(prepNode, "memory", typeFn=int, default=sys.maxint)
-        self.cpu = getOptionalAttrib(prepNode, "cpu", typeFn=int, default=sys.maxint)
+        self.cores = getOptionalAttrib(prepNode, "cpu", typeFn=int, default=sys.maxint)
         self.iteration = iteration
               
     def run(self, fileStore):
@@ -144,7 +144,7 @@ class BatchPreprocessor(Job):
         prepOptions = PreprocessorOptions(int(prepNode.get("chunkSize", default="-1")),
                                           prepNode.attrib["preprocessorString"],
                                           int(self.memory),
-                                          int(self.cpu),
+                                          int(self.cores),
                                           bool(int(prepNode.get("check", default="0"))),
                                           getOptionalAttrib(prepNode, "proportionToSample", typeFn=float, default=1.0))
         

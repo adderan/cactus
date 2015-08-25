@@ -16,11 +16,11 @@ from sonLib.bioio import nameValue
 from sonLib.bioio import getLogLevelString
 
 def runToilStatusAndFailIfNotComplete(toilDir):
-    command = "toilStatus --toil %s --failIfNotComplete --verbose" % toilDir
+    command = "toil status %s --failIfNotComplete --verbose" % toilDir
     system(command)
 
 def runToilStats(toilDir, outputFile):
-    system("toilStats --toil %s --outputFile %s" % (toilDir, outputFile))
+    system("toil stats %s --outputFile %s" % (toilDir, outputFile))
     logger.info("Ran the  toilStats command apparently okay")
 
 
@@ -177,7 +177,7 @@ def runCactusBlast(sequenceFiles, outputFile, toilDir,
     if targetSequenceFiles != None: 
         targetSequenceFiles = " ".join(targetSequenceFiles)
     targetSequenceFiles = nameValue("targetSequenceFiles", targetSequenceFiles, quotes=True)
-    command = "cactus_blast.py %s  --cigars %s %s %s %s %s %s %s %s --toil %s --logLevel %s" % \
+    command = "cactus_blast.py %s  --cigars %s %s %s %s %s %s %s %s --jobStore %s --logLevel %s" % \
             (" ".join(sequenceFiles), outputFile,
              chunkSize, overlapSize, blastString, selfBlastString, compressFiles, 
              lastzMemory, targetSequenceFiles, toilDir, logLevel)
@@ -195,7 +195,7 @@ def runCactusBlastIngroupsAndOutgroups(ingroupPaths, outgroupPaths,
     lastzMemory = nameValue("lastzMemory", lastzMemory, int)
     ingroupPaths = ",".join(ingroupPaths)
     outgroupPaths = ",".join(outgroupPaths)
-    command = "cactus_blast.py --ingroups %s --outgroups %s --cigars %s --toil %s --logLevel %s %s %s" % \
+    command = "cactus_blast.py --ingroups %s --outgroups %s --cigars %s --jobStore %s --logLevel %s %s %s" % \
             (ingroupPaths, outgroupPaths, outputFile, toilDir, logLevel, blastString, lastzMemory)
     logger.info("Running command : %s" % command)
     system(command)
@@ -435,7 +435,7 @@ def _fn(toilDir,
     maxCpus = nameValue("maxCpus", maxCpus, int)
     defaultMemory= nameValue("defaultMemory", defaultMemory, int)
     logFile = nameValue("logFile", logFile, str)
-    return "%s %s %s --toil %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
+    return "%s %s %s --jobStore %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
              buildReference, toilDir, logLevel, buildHal, buildFasta, batchSystem, retryCount, rescueJobFrequency, toilStats, maxThreads, maxCpus, logFile, defaultMemory, extraToilArgumentsString)
      
 def runCactusWorkflow(experimentFile,

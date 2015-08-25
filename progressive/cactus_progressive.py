@@ -32,7 +32,7 @@ from toil.lib.bioio import setLoggingFromOptions
 from cactus.shared.common import cactusRootPath
 from cactus.shared.common import getOptionalAttrib
   
-from toil.src.toil.job import Job
+from toil.job import Job
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 from cactus.pipeline.cactus_workflow import CactusWorkflowArguments
@@ -57,6 +57,7 @@ class ProgressiveDown(Job):
     
     def run(self, fileStore):
         logger.info("Progressive Down: " + self.event)
+        
         
         if not self.options.nonRecursive:
             deps = self.schedule.deps(self.event)
@@ -113,7 +114,9 @@ class ProgressiveUp(Job):
                 if int(self.options.maxThreads) < maxParallel * 3:
                     raise RuntimeError("At least %d threads are required (only %d were specified) to handle up to %d events using kyoto tycoon. Either increase the number of threads using the --maxThreads option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, self.options.maxThreads, maxParallel, configWrapper.getMaxParallelSubtrees()))
             else:
-                if int(self.options.maxCpus) < maxParallel * 3:
+                if not self.options.maxCores:
+                    self.options.maxCores = maxParallel * 3
+                if int(self.options.maxCores) < maxParallel * 3:
                     raise RuntimeError("At least %d concurrent cpus are required to handle up to %d events using kyoto tycoon. Either increase the number of cpus using the --maxCpus option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, maxParallel, configWrapper.getMaxParallelSubtrees()))
                     
         # take union of command line options and config options for hal and reference
@@ -142,6 +145,15 @@ class ProgressiveUp(Job):
         refDone = not workFlowArgs.buildReference or os.path.isfile(experiment.getReferencePath())
         halDone = not workFlowArgs.buildHal or (os.path.isfile(experiment.getHALFastaPath()) and
                                                 os.path.isfile(experiment.getHALPath()))
+
+        #move the sequences from the files specified in the project wrapper
+        #into the fileStore, and update the config wrapper with the sequence ID's
+        #so they can be used in the Trimming Blast phase
+        outputSequenceFiles = self.project.getInputSequencePaths()
+        sequenceIDs = [fileStore.writeGlobalFile(path) for path in outputSequenceFiles]
+        experiment.setSequenceIDs(sequenceIDs)
+
+
                                                                
         if not workFlowArgs.overwrite and doneDone and refDone and halDone:
             self.logToMaster("Skipping %s because it is already done and overwrite is disabled" %
@@ -191,11 +203,10 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         #Create jobs to create the output sequences
         configNode = ET.parse(project.getConfigPath()).getroot()
         ConfigWrapper(configNode).substituteAllPredefinedConstantsWithLiterals() #This is necessary..
+        outputSequenceFiles = CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir())
         #Create the preprocessor
-        self.addChild(CactusPreprocessor(project.getInputSequencePaths(), 
-                                               CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir()),
-                                               configNode))
-        #Now build the progressive-down target
+        self.addChild(CactusPreprocessor(project.getInputSequencePaths(), outputSequenceFiles, configNode))
+        #Now build the progressive-down job
         schedule = Schedule()
         schedule.loadProject(project)
         schedule.compute()
@@ -210,7 +221,7 @@ def main():
     usage = "usage: %prog [options] <multicactus project>"
     description = "Progressive version of cactus_workflow"
     parser = OptionParser(usage=usage, description=description)
-    Stack.addToilOptions(parser)
+    Job.Runner.addToilOptions(parser)
     addCactusWorkflowOptions(parser)
     
     parser.add_option("--nonRecursive", dest="nonRecursive", action="store_true",

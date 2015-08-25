@@ -102,12 +102,12 @@ class CactusJob(Job):
         if overlarge:
             Job.__init__(self, memory=self.getOptionalJobAttrib("overlargeMemory", typeFn=int, 
                                                                       default=getOptionalAttrib(self.constantsNode, "defaultOverlargeMemory", int, default=sys.maxint)),
-                                  cpu=self.getOptionalJobAttrib("overlargeCpu", typeFn=int, 
+                                  cores=self.getOptionalJobAttrib("overlargeCpu", typeFn=int, 
                                                                       default=getOptionalAttrib(self.constantsNode, "defaultOverlargeCpu", int, default=sys.maxint)))
         else:
             Job.__init__(self, memory=self.getOptionalJobAttrib("memory", typeFn=int, 
                                                                       default=getOptionalAttrib(self.constantsNode, "defaultMemory", int, default=sys.maxint)),
-                                  cpu=self.getOptionalJobAttrib("cpu", typeFn=int, 
+                                  cores=self.getOptionalJobAttrib("cpu", typeFn=int, 
                                                                       default=getOptionalAttrib(self.constantsNode, "defaultCpu", int, default=sys.maxint)))
     
     def getOptionalPhaseAttrib(self, attribName, typeFn=None, default=None):
@@ -315,7 +315,6 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         assert self.cactusWorkflowArguments.outgroupEventNames is not None
 
         fileStore.logToMaster("Running blast using the trimming strategy")
-        assert 1 == 0
 
         # Get ingroup and outgroup sequences
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
@@ -328,11 +327,11 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         uniqueFas = prependUniqueIDs(fastas, renamedInputSeqDir)
         uniqueFaIDs = [fileStore.writeGlobalFile(path) for path in uniqueFas]
 
-        seqIDMap = dict(zip(seqIDMap.keys(), uniqueFas))
+        seqIDMap = dict(zip(seqIDMap.keys(), uniqueFaIDs))
         ingroupIDs = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqIDMap.items()))
         outgroupIDs = [seqIDMap[i] for i in exp.getOutgroupEvents()]
-        fileStore.logToMaster("Ingroup sequences: %s" % (ingroups))
-        fileStore.logToMaster("Outgroup sequences: %s" % (outgroups))
+        fileStore.logToMaster("Ingroup sequences: %s" % (ingroupIDs))
+        fileStore.logToMaster("Outgroup sequences: %s" % (outgroupIDs))
 
         # Change the blast arguments depending on the divergence
         setupDivergenceArgs(self.cactusWorkflowArguments)
@@ -392,6 +391,10 @@ class CactusSetupPhase(CactusPhasesJob):
     """
     def run(self, fileStore):
         cw = ConfigWrapper(self.cactusWorkflowArguments.configNode)
+        eW = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
+        sequenceFiles = [fileStore.readGlobalFile(fileID) for fileID in eW.getSequenceIDs()]
+        for seqFile in sequenceFiles:
+            assert len(open(seqFile).readlines()) > 0
 
         if (not self.cactusWorkflowArguments.configWrapper.getDoTrimStrategy()) or (self.cactusWorkflowArguments.outgroupEventNames == None):
             setupDivergenceArgs(self.cactusWorkflowArguments)
@@ -455,7 +458,7 @@ def inverseJukesCantor(d):
     assert d >= 0.0
     return 0.75 * (1 - math.exp(-d * 4.0/3.0))
     
-class CactusCafPhase(CactusPhasesJob):      
+class CactusCafPhase(CactusPhasesJob):
     def run(self, fileStore):
         if (not self.cactusWorkflowArguments.configWrapper.getDoTrimStrategy()) or (self.cactusWorkflowArguments.outgroupEventNames == None):
             setupFilteringByIdentity(self.cactusWorkflowArguments)
