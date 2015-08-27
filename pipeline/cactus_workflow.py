@@ -68,7 +68,7 @@ from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.shared.experimentWrapper import DbElemWrapper
 from cactus.shared.configWrapper import ConfigWrapper
-from cactus.pipeline.ktserverToil import addKtserverDependentChild
+from cactus.pipeline.ktserverService import addKtserverDependentChild
 
 ############################################################
 ############################################################
