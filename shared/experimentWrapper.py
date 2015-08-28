@@ -191,12 +191,24 @@ class DbElemWrapper(object):
             system("rm -rf %s" % self.getDbDir())
 
 class ExperimentWrapper(DbElemWrapper):
-    def __init__(self, xmlRoot):
+    def __init__(self, xmlRoot, fileStore = None):
         self.diskElem = xmlRoot.find("cactus_disk")
         confElem = self.diskElem.find("st_kv_database_conf")
         super(ExperimentWrapper, self).__init__(confElem)
         self.xmlRoot = xmlRoot
+        self.fileStore = fileStore
+        if self.fileStore:
+            if not 'sequenceIDs' in self.xmlRoot.attrib:
+                #this is the first time creating a wrapper with these sequences.
+                #Move them into the fileStore
+                sequences = self.xmlRoot.attrib["sequences"].split()
+                sequenceIDs = [fileStore.writeGlobalFile(path) for path in sequences]
+                self.xmlRoot.attrib["sequenceIDs"] = sequenceIDs
+            sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
+            sequences = [fileStore.readGlobalFile(fileID) for fileID in sequenceIDs]
+            self.xmlRoot.attrib["sequences"] = " ".join(sequences)
         self.seqMap = self.buildSequenceMap()
+
         
     @staticmethod
     def createExperimentWrapper(sequences, newickTreeString, outputDir,
@@ -267,16 +279,16 @@ class ExperimentWrapper(DbElemWrapper):
     
     def setSequences(self, sequences):
         self.xmlRoot.attrib["sequences"] = " ".join(sequences)
+
+        if self.fileStore:
+            sequenceIDs = self.xmlRoot.attrib["sequenceIDs"]
+            for seq, seqID in zip(sequences, sequenceIDs):
+                fileStore.updateGlobalFile(seqID, seq)
+
         self.seqMap = self.buildSequenceMap()
-    def setSequenceIDs(self, sequenceIDs):
-        self.xmlRoot.attrib["sequenceIDs"] = " ".join(sequenceIDs)
-        self.seqIDMap = self.buildSequenceIDMap()
-    
+        
     def getSequences(self):
         return self.xmlRoot.attrib["sequences"].split()
-    
-    def getSequenceIDs(self):
-        return self.xmlRoot.attrib["sequenceIDs"].split()
     
     def getSequence(self, event):
         return self.seqMap[event]
@@ -404,33 +416,6 @@ class ExperimentWrapper(DbElemWrapper):
             if tree.isLeaf(node):
                 seqMap[tree.getName(node)] = nameIterator.next()
         return seqMap
-    def buildSequenceIDMap(self):
-        tree = self.getTree()
-        sequenceIDString = self.xmlRoot.attrib["sequenceIDs"]
-        sequenceIDs = sequenceIDString.split()
-        nameIterator = iter(sequenceIDs)
-        seqIDMap = dict()
-        for node in tree.postOrderTraversal():
-            if tree.isLeaf(node):
-                seqIDMap[tree.getName(node)] = nameIterator.next()
-        return seqIDMap
-    def updateTreeFromIDs(self, tree, seqIDMap = None):
-        if seqIDMap is not None:
-            self.seqIDMap = seqIDMap
-        newIDMap = dict()
-        treeString = NXNewick().writeString(tree)
-        self.xmlRoot.attrib["species_tree"] = treeString
-        sequenceIDs = ""
-        for node in tree.postOrderTraversal():
-            if tree.isLeaf(node):
-                nodeName = tree.getName(node)
-                if len(sequenceIDs) > 0:
-                    sequenceIDs += " "
-                sequenceIDs += seqIDMap[nodeName]
-                newIDMap[nodeName] = seqIDMap[nodeName]
-        self.xmlRoot.attrib["sequenceIDs"] = sequenceIDs
-        self.seqIDMap = newIDMap
-
 
     # load in a new tree (using input seqMap if specified,
     # current one otherwise
