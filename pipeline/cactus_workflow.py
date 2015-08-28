@@ -317,17 +317,16 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         fileStore.logToMaster("Running blast using the trimming strategy")
 
         # Get ingroup and outgroup sequences
-        exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
-        seqIDMap = exp.buildSequenceIDMap()
+        exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode, fileStore = fileStore)
+        seqMap = exp.buildSequenceMap()
         # Prepend unique ID to fasta headers to prevent name collision
         renamedInputSeqDir = os.path.join(fileStore.getLocalTempDir(), "renamedInputs")
         os.mkdir(renamedInputSeqDir)
         
-        fastas = [fileStore.readGlobalFile(fileID) for fileID in seqIDMap.values()]
-        uniqueFas = prependUniqueIDs(fastas, renamedInputSeqDir)
+        uniqueFas = prependUniqueIDs(seqMap.values(), renamedInputSeqDir)
         uniqueFaIDs = [fileStore.writeGlobalFile(path) for path in uniqueFas]
 
-        seqIDMap = dict(zip(seqIDMap.keys(), uniqueFaIDs))
+        seqMap = dict(zip(seqMap.keys(), uniqueFas))
         ingroupIDs = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqIDMap.items()))
         outgroupIDs = [seqIDMap[i] for i in exp.getOutgroupEvents()]
         fileStore.logToMaster("Ingroup sequences: %s" % (ingroupIDs))

@@ -59,6 +59,7 @@ class ProgressiveDown(Job):
         logger.info("Progressive Down: " + self.event)
         
         
+        
         if not self.options.nonRecursive:
             deps = self.schedule.deps(self.event)
             for child in deps:
@@ -146,14 +147,6 @@ class ProgressiveUp(Job):
         halDone = not workFlowArgs.buildHal or (os.path.isfile(experiment.getHALFastaPath()) and
                                                 os.path.isfile(experiment.getHALPath()))
 
-        #move the sequences from the files specified in the project wrapper
-        #into the fileStore, and update the config wrapper with the sequence ID's
-        #so they can be used in the Trimming Blast phase
-        outputSequenceFiles = self.project.getInputSequencePaths()
-        sequenceIDs = [fileStore.writeGlobalFile(path) for path in outputSequenceFiles]
-        experiment.setSequenceIDs(sequenceIDs)
-
-
                                                                
         if not workFlowArgs.overwrite and doneDone and refDone and halDone:
             self.logToMaster("Skipping %s because it is already done and overwrite is disabled" %
@@ -203,7 +196,7 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         #Create jobs to create the output sequences
         configNode = ET.parse(project.getConfigPath()).getroot()
         ConfigWrapper(configNode).substituteAllPredefinedConstantsWithLiterals() #This is necessary..
-        outputSequenceFiles = CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir())
+        outputSequenceFiles = CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir()
         #Create the preprocessor
         self.addChild(CactusPreprocessor(project.getInputSequencePaths(), outputSequenceFiles, configNode))
         #Now build the progressive-down job
@@ -215,6 +208,7 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         assert self.options.event in project.expMap
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)
+        
         self.addFollowOn(ProgressiveDown(self.options, project, self.options.event, schedule))
 
 def main():

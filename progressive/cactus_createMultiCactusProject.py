@@ -213,7 +213,7 @@ def cleanEventTree(experiment):
                     redoPrefix = True
                     
     experiment.xmlRoot.attrib["species_tree"] = NXNewick().writeString(tree)
-    experiment.seqPathMap = experiment.buildSequenceMap()
+    experiment.seqMap = experiment.buildSequenceMap()
 
 # Make the subdirs for each subproblem:  name/ and name/name_DB
 # and write the experiment files
@@ -222,7 +222,7 @@ def createFileStructure(mcProj, expTemplate, configTemplate, options):
     if not os.path.exists(options.path):
         os.makedirs(options.path)
     mcProj.writeXML(os.path.join(options.path, "%s_project.xml" % options.name))
-    seqMap = expTemplate.seqPathMap
+    seqMap = expTemplate.seqMap
     portOffset = 0
     for name, expPath in mcProj.expMap.items():
         path = os.path.join(options.path, name)
