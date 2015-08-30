@@ -132,8 +132,8 @@ class BatchPreprocessor(Job):
         self.inSequenceFileID = inSequenceFileID
         self.globalOutSequenceFileID = globalOutSequenceFileID
         prepNode = self.prepXmlElems[iteration]
-        self.memory = getOptionalAttrib(prepNode, "memory", typeFn=int, default=sys.maxint)
-        self.cores = getOptionalAttrib(prepNode, "cpu", typeFn=int, default=sys.maxint)
+        self.memory = getOptionalAttrib(prepNode, "memory", typeFn=int, default=None)
+        self.cores = getOptionalAttrib(prepNode, "cpu", typeFn=int, default=None)
         self.iteration = iteration
               
     def run(self, fileStore):
@@ -143,8 +143,8 @@ class BatchPreprocessor(Job):
         prepNode = self.prepXmlElems[self.iteration]
         prepOptions = PreprocessorOptions(int(prepNode.get("chunkSize", default="-1")),
                                           prepNode.attrib["preprocessorString"],
-                                          int(self.memory),
-                                          int(self.cores),
+                                          self.memory,
+                                          self.cores,
                                           bool(int(prepNode.get("check", default="0"))),
                                           getOptionalAttrib(prepNode, "proportionToSample", typeFn=float, default=1.0))
         

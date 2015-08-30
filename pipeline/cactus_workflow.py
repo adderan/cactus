@@ -1092,9 +1092,10 @@ def main():
     
     if len(args) != 0:
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
+    from cactus_workflow import RunCactusPreprocessorThenCactusSetup as _RunCactusPreprocessorThenCactusSetup
 
     cactusWorkflowArguments = CactusWorkflowArguments(options)
-    Job.Runner.startToil(RunCactusPreprocessorThenCactusSetup(options), options)
+    Job.Runner.startToil(_RunCactusPreprocessorThenCactusSetup(options), options)
 
 def _test():
     import doctest      
