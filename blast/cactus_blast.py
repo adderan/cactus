@@ -24,7 +24,7 @@ from cactus.shared.commonJobs import WritePermanentFile
 class BlastOptions:
     def __init__(self, chunkSize=10000000, overlapSize=10000, 
                  lastzArguments="", compressFiles=True, realign=False, realignArguments="",
-                 minimumSequenceLength=1, memory=sys.maxint,
+                 minimumSequenceLength=1, memory=None,
                  # Trim options for trimming ingroup seqs:
                  trimFlanking=10, trimMinSize=20,
                  trimWindowSize=10, trimThreshold=1,
@@ -456,7 +456,6 @@ class RunSelfBlast(Job):
     def run(self, fileStore):
         assert fileStore.globalFileExists(self.seqFileID)
         seqFile = fileStore.readGlobalFile(self.seqFileID)
-        assert len(open(seqFile).readlines()) > 1
         assert os.path.exists(seqFile)
         tempResultsFile = getTempFile(rootDir = fileStore.getLocalTempDir())
         #tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
@@ -497,12 +496,16 @@ class RunBlast(Job):
         seqFile1 = fileStore.readGlobalFile(self.seqFile1ID)
         seqFile2 = fileStore.readGlobalFile(self.seqFile2ID)
         assert len(open(seqFile1).readlines()) > 0
+        assert len(open(seqFile2).readlines()) > 0
+        close(seqFile1)
+        close(seqFile2)
         if self.blastOptions.compressFiles:
             seqFile1 = decompressFastaFile(seqFile1, os.path.join(fileStore.getLocalTempDir(), "1.fa"))
             seqFile2 = decompressFastaFile(seqFile2, os.path.join(fileStore.getLocalTempDir(), "2.fa"))
         tempResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResults.cig")
         command = self.blastOptions.blastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE_1", seqFile1).replace("SEQ_FILE_2", seqFile2)
         system(command)
+        assert len(open(tempResultsFile).readlines()) > 0
         tempConvertedResultsFile = os.path.join(fileStore.getLocalTempDir(), "tempResulsConverted.cig")
         system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, tempConvertedResultsFile, self.blastOptions.roundsOfCoordinateConversion))
         fileStore.updateGlobalFile(self.resultsFileID, tempConvertedResultsFile)
