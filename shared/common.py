@@ -14,8 +14,15 @@ from sonLib.bioio import getTempDirectory
 from sonLib.bioio import system, popenCatch, popenPush
 from sonLib.bioio import nameValue
 from sonLib.bioio import getLogLevelString
+from toil.job import Job
 
-from jobTree.src.common import runJobTreeStatusAndFailIfNotComplete
+def runToilStatusAndFailIfNotComplete(toilDir):
+    command = "toil status --jobStore %s --failIfNotComplete --verbose" % toilDir
+    system(command)
+
+def runToilStats(toilDir, outputFile):
+    system("toil stats --jobStore %s --outputFile %s" % (toilDir, outputFile))
+    logger.info("Ran the toil stats command apparently okay")
 
 def cactusRootPath():
     """
@@ -152,7 +159,7 @@ def runCactusSetup(cactusDiskDatabaseString, sequences,
     logger.info("Ran cactus setup okay")
     return [ i for i in masterMessages.split("\n") if i != '' ]
     
-def runCactusBlast(sequenceFiles, outputFile, jobTreeDir,
+def runCactusBlast(sequenceFiles, outputFile, toilDir,
                    chunkSize=None, overlapSize=None, 
                    logLevel=None, 
                    blastString=None, 
@@ -170,10 +177,10 @@ def runCactusBlast(sequenceFiles, outputFile, jobTreeDir,
     if targetSequenceFiles != None: 
         targetSequenceFiles = " ".join(targetSequenceFiles)
     targetSequenceFiles = nameValue("targetSequenceFiles", targetSequenceFiles, quotes=True)
-    command = "cactus_blast.py %s  --cigars %s %s %s %s %s %s %s %s --jobTree %s --logLevel %s" % \
+    command = "cactus_blast.py %s  --cigars %s %s %s %s %s %s %s %s --jobStore %s --logLevel %s" % \
             (" ".join(sequenceFiles), outputFile,
              chunkSize, overlapSize, blastString, selfBlastString, compressFiles, 
-             lastzMemory, targetSequenceFiles, jobTreeDir, logLevel)
+             lastzMemory, targetSequenceFiles, toilDir, logLevel)
     logger.info("Running command : %s" % command)
     system(command)
     logger.info("Ran the cactus_blast command okay")
@@ -382,7 +389,7 @@ def runCactusCheck(cactusDiskDatabaseString,
     popenPush("cactus_check --cactusDisk '%s' --logLevel %s %s %s"  % (cactusDiskDatabaseString, logLevel, recursive, checkNormalised), stdinString=flowerNames)
     logger.info("Ran cactus check")
     
-def _fn(jobTreeDir, 
+def _fn(toilDir, 
       logLevel=None, retryCount=0, 
       batchSystem="single_machine", 
       rescueJobFrequency=None,
@@ -390,12 +397,12 @@ def _fn(jobTreeDir,
       buildAvgs=False, buildReference=False,
       buildHal=False,
       buildFasta=False,
-      jobTreeStats=False,
+      toilStats=False,
       maxThreads=None,
       maxCpus=None,
       defaultMemory=None,
       logFile=None,
-      extraJobTreeArgumentsString=""):
+      extraToilArgumentsString=""):
     logLevel = getLogLevelString2(logLevel)
     skipAlignments = nameValue("skipAlignments", skipAlignments, bool)
     buildAvgs = nameValue("buildAvgs", buildAvgs, bool)
@@ -406,16 +413,16 @@ def _fn(jobTreeDir,
     batchSystem = nameValue("batchSystem", batchSystem, str, quotes=True)
     retryCount = nameValue("retryCount", retryCount, int)
     rescueJobFrequency = nameValue("rescueJobsFrequency", rescueJobFrequency, int)
-    jobTreeStats = nameValue("stats", jobTreeStats, bool)
+    toilStats = nameValue("stats", toilStats, bool)
     maxThreads = nameValue("maxThreads", maxThreads, int)
     maxCpus = nameValue("maxCpus", maxCpus, int)
     defaultMemory= nameValue("defaultMemory", defaultMemory, int)
     logFile = nameValue("logFile", logFile, str)
-    return "%s %s %s --jobTree %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
-             buildReference, jobTreeDir, logLevel, buildHal, buildFasta, batchSystem, retryCount, rescueJobFrequency, jobTreeStats, maxThreads, maxCpus, logFile, defaultMemory, extraJobTreeArgumentsString)
+    return "%s %s %s --toil %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
+             buildReference, toilDir, logLevel, buildHal, buildFasta, batchSystem, retryCount, rescueJobFrequency, toilStats, maxThreads, maxCpus, logFile, defaultMemory, extraToilArgumentsString)
      
 def runCactusWorkflow(experimentFile,
-                      jobTreeDir, 
+                      toilDir, 
                       logLevel=None, retryCount=0, 
                       batchSystem="single_machine", 
                       rescueJobFrequency=None,
@@ -423,15 +430,15 @@ def runCactusWorkflow(experimentFile,
                       buildAvgs=False, buildReference=False,
                       buildHal=False,
                       buildFasta=False,
-                      jobTreeStats=False,
+                      toilStats=False,
                       maxThreads=None,
                       maxCpus=None,
                       defaultMemory=None,
                       logFile=None,
-                      extraJobTreeArgumentsString=""):
-    command = ("cactus_workflow.py --experiment %s" % experimentFile) + " " + _fn(jobTreeDir, 
+                      extraToilArgumentsString=""):
+    command = ("cactus_workflow.py --experiment %s" % experimentFile) + " " + _fn(toilDir, 
                       logLevel, retryCount, batchSystem, rescueJobFrequency, skipAlignments,
-                      buildAvgs, buildReference, buildHal, buildFasta, jobTreeStats, maxThreads, maxCpus, defaultMemory, logFile, extraJobTreeArgumentsString=extraJobTreeArgumentsString)
+                      buildAvgs, buildReference, buildHal, buildFasta, toilStats, maxThreads, maxCpus, defaultMemory, logFile, extraToilArgumentsString=extraToilArgumentsString)
     system(command)
     logger.info("Ran the cactus workflow okay")
     
@@ -446,7 +453,7 @@ def runCactusCreateMultiCactusProject(experimentFile, outputDir,
     logger.info("Ran the cactus create multi project")
     
 def runCactusProgressive(inputDir,
-                      jobTreeDir, 
+                      toilDir, 
                       logLevel=None, retryCount=0, 
                       batchSystem="single_machine", 
                       rescueJobFrequency=None,
@@ -454,21 +461,21 @@ def runCactusProgressive(inputDir,
                       buildHal=None,
                       buildFasta=None,
                       buildAvgs=False, 
-                      jobTreeStats=False,
+                      toilStats=False,
                       maxThreads=None,
                       maxCpus=None,
                       defaultMemory=None,
                       recursive=None,
                       logFile=None,
                       event=None,
-                      extraJobTreeArgumentsString="",
+                      extraToilArgumentsString="",
                       profileFile=None):
-    command = ("cactus_progressive.py %s" % inputDir) + " " + _fn(jobTreeDir, 
+    command = ("cactus_progressive.py %s" % inputDir) + " " + _fn(toilDir, 
                       logLevel, retryCount, batchSystem, rescueJobFrequency, skipAlignments,
                       buildAvgs, None,
                       buildHal,
                       buildFasta,
-                      jobTreeStats, maxThreads, maxCpus, defaultMemory, logFile, extraJobTreeArgumentsString=extraJobTreeArgumentsString) + \
+                      toilStats, maxThreads, maxCpus, defaultMemory, logFile, extraToilArgumentsString=extraToilArgumentsString) + \
                       (" %s %s" % (nameValue("recursive", recursive, bool),
                                       nameValue("event", event)))
     if profileFile != None:
@@ -504,3 +511,11 @@ def runCactusFastaGenerator(cactusDiskDatabaseString,
     
 def runCactusAnalyseAssembly(sequenceFile):
     return popenCatch("cactus_analyseAssembly %s" % sequenceFile)[:-1]
+
+class WritePermanentFile(Job):
+    def __init__(self, fileID, filePath):
+        Job.__init__(self)
+        self.fileID = fileID
+        self.filePath = filePath
+    def run(self, fileStore):
+        fileStore.readGlobalFile(self.fileID, localFilePath = self.filePath)
