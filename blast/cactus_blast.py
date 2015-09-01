@@ -15,7 +15,7 @@ from sonLib.bioio import system, popenCatch
 from sonLib.bioio import getLogLevelString
 from sonLib.bioio import makeSubDir
 from sonLib.bioio import catFiles
-from sonLib.bioio import getTempFile
+from sonLib.bioio import getTempFile, getTempDirectory
 from sonLib.bioio import nameValue
 from toil.job import Job
 from cactus.shared.common import WritePermanentFile
@@ -60,7 +60,7 @@ class BlastFlower(Job):
     """Take a reconstruction problem and generate the sequences in chunks to be blasted.
     Then setup the follow on blast targets and collation targets.
     """
-    def __init__(self, cactusDisk, flowerName, finalResultsFile, blastOptions):
+    def __init__(self, cactusDisk, flowerName, finalResultsFileID, blastOptions):
         Job.__init__(self)
         self.cactusDisk = cactusDisk
         self.flowerName = flowerName

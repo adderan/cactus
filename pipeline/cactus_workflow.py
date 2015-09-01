@@ -542,8 +542,11 @@ class CactusCafWrapperLarge2(CactusCafWrapper):
     """Runs cactus_core upon a one flower and one alignment file.
     """
     def run(self, fileStore):
+        constraints = None
+        if "constraintsID" in self.phaseNode.attrib:
+            constraints = fileStore.readGlobalFile(self.phaseNode.attrib["constraintsID"])
         alignments = fileStore.readGlobalFile(self.phaseNode.attrib["alignmentsID"])
-        self.runCactusCafInWorkflow(alignmentFile=alignments)
+        self.runCactusCafInWorkflow(constraintsFile=constraints, alignmentFile=alignments)
         
 ############################################################
 ############################################################
@@ -646,18 +649,19 @@ class CactusBarWrapperLarge(CactusRecursionJob):
 class CactusBarEndAlignerWrapper(CactusRecursionJob):
     """Computes an end alignment.
     """
-    def __init__(self, phaseNode, constantsNode, cactusDiskDatabaseString, flowerNames, overlarge, endsToAlign, alignmentFile):
+    def __init__(self, phaseNode, constantsNode, cactusDiskDatabaseString, flowerNames, overlarge, endsToAlign, alignmentFileID):
         CactusRecursionJob.__init__(self, phaseNode, constantsNode, cactusDiskDatabaseString, flowerNames, overlarge)
         self.endsToAlign = endsToAlign
         self.alignmentFileID = alignmentFileID
     
     def run(self, fileStore):
-        alignmentFile = fileStore.readGlobalFile(self.alignmentFileID)
+        alignmentFile = getTempFile(rootDir=fileStore.getLocalTempDir())
         self.endsToAlign = [ int(i) for i in self.endsToAlign ]
         self.endsToAlign.sort()
         self.flowerNames = encodeFlowerNames((decodeFirstFlowerName(self.flowerNames),) + tuple(self.endsToAlign)) #The ends to align become like extra flower names
         messages = runBarForJob(self, 
                                    endAlignmentsToPrecomputeOutputFile=alignmentFile)
+        fileStore.updateGlobalFile(self.alignmentFileID, alignmentFile)
         for message in messages:
             logger.info(message)
         
@@ -666,8 +670,10 @@ class CactusBarWrapperWithPrecomputedEndAlignments(CactusRecursionJob):
     """
     def run(self, fileStore):
         if self.phaseNode.attrib["precomputedAlignmentFileIDs"] != "":
-            precomputedAlignmentFiles = fileStore.readGlobalFile(self.phaseNode.attrib["precomputedAlignmentFiles"])
-            messages = runBarForJob(self, precomputedAlignments=precomputedAlignmentFiles)
+            precomputedAlignmentIDs = self.phaseNode.attrib["precomputedAlignmentFileIDs"].split()
+            precomputedAlignmentFiles = [fileStore.readGlobalFile(fileID) for fileID in precomputedAlignmentIDs]
+            assert len(open(precomputedAlignmentFiles[0]).readlines()) > 0
+            messages = runBarForJob(self, precomputedAlignments=" ".join(precomputedAlignmentFiles))
         else:
             messages = runBarForJob(self)
         for message in messages:
