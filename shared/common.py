@@ -418,7 +418,7 @@ def _fn(toilDir,
     maxCpus = nameValue("maxCpus", maxCpus, int)
     defaultMemory= nameValue("defaultMemory", defaultMemory, int)
     logFile = nameValue("logFile", logFile, str)
-    return "%s %s %s --toil %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
+    return "%s %s %s --jobStore %s --logLevel %s %s %s %s %s %s %s %s %s %s %s %s" % (skipAlignments, buildAvgs, 
              buildReference, toilDir, logLevel, buildHal, buildFasta, batchSystem, retryCount, rescueJobFrequency, toilStats, maxThreads, maxCpus, logFile, defaultMemory, extraToilArgumentsString)
      
 def runCactusWorkflow(experimentFile,

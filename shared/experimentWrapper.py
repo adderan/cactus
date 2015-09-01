@@ -268,6 +268,14 @@ class ExperimentWrapper(DbElemWrapper):
     def setSequences(self, sequences):
         self.xmlRoot.attrib["sequences"] = " ".join(sequences)
         self.seqMap = self.buildSequenceMap()
+    def writeSequencesToFileStore(self, fileStore):
+        sequences = self.xmlRoot.attrib["sequences"].split()
+        sequenceIDs = [fileStore.writeGlobalFile(path) for path in sequences]
+        self.xmlRoot.attrib["sequenceIDs"] = " ".join(sequenceIDs)
+    def readSequencesFromFileStore(self, fileStore):
+        sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
+        sequences = [fileStore.readGlobalFile(fileID) for fileID in sequenceIDs]
+        self.setSequences(sequences)
     
     def getSequences(self):
         return self.xmlRoot.attrib["sequences"].split()

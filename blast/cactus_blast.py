@@ -64,12 +64,12 @@ class BlastFlower(Job):
         Job.__init__(self)
         self.cactusDisk = cactusDisk
         self.flowerName = flowerName
-        self.finalResultsFile = finalResultsFile
+        self.finalResultsFileID = finalResultsFileID
         self.blastOptions = blastOptions
         blastOptions.roundsOfCoordinateConversion = 2
         
     def run(self, fileStore):
-        chunksDir = makeSubDir(os.path.join(self.getGlobalTempDir(), "chunks"))
+        chunksDir = getTempDirectory(rootDir=fileStore.getLocalTempDir())
         chunks = [ chunk for chunk in popenCatch("cactus_blast_chunkFlowerSequences %s '%s' %s %i %i %i %s" % \
                                                           (getLogLevelString(), self.cactusDisk, self.flowerName, 
                                                           self.blastOptions.chunkSize, 
@@ -77,7 +77,8 @@ class BlastFlower(Job):
                                                           self.blastOptions.minimumSequenceLength,
                                                           chunksDir)).split("\n") if chunk != "" ]
         logger.info("Broken up the flowers into individual 'chunk' files")
-        self.addChild(MakeBlastsAllAgainstAll(self.blastOptions, chunks, self.finalResultsFile))
+        chunkIDs = [fileStore.writeGlobalFile(chunk) for chunk in chunks]
+        self.addChild(MakeBlastsAllAgainstAll(self.blastOptions, chunkIDs, self.finalResultsFileID))
 class BlastSequencesAllAgainstAllWrapper(Job):
     """Runs BlastSequencesAllAgainstAll on permanent files (not in the fileStore)
     """
