@@ -25,21 +25,20 @@ from sonLib.bioio import getTempFile
 from sonLib.bioio import printBinaryTree
 from sonLib.bioio import system
 
-from jobTree.src.bioio import getLogLevelString
-from jobTree.src.bioio import logger
-from jobTree.src.bioio import setLoggingFromOptions
+from toil.lib.bioio import getLogLevelString
+from toil.lib.bioio import logger
+from toil.lib.bioio import setLoggingFromOptions
 
 from cactus.shared.common import cactusRootPath
 from cactus.shared.common import getOptionalAttrib
   
-from jobTree.scriptTree.target import Target 
-from jobTree.scriptTree.stack import Stack 
+from toil.job import Job
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 from cactus.pipeline.cactus_workflow import CactusWorkflowArguments
 from cactus.pipeline.cactus_workflow import addCactusWorkflowOptions
 from cactus.pipeline.cactus_workflow import findRequiredNode
-from cactus.pipeline.cactus_workflow import CactusSetupPhase
+from cactus.pipeline.cactus_workflow import CactusSetupPhaseWrapper
 from cactus.pipeline.cactus_workflow import CactusTrimmingBlastPhase
 
 from cactus.progressive.multiCactusProject import MultiCactusProject
@@ -48,53 +47,53 @@ from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.shared.configWrapper import ConfigWrapper
 from cactus.progressive.schedule import Schedule
         
-class ProgressiveDown(Target):
+class ProgressiveDown(Job):
     def __init__(self, options, project, event, schedule):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
         self.schedule = schedule
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Down: " + self.event)
         
         if not self.options.nonRecursive:
             deps = self.schedule.deps(self.event)
             for child in deps:
-                self.addChildTarget(ProgressiveDown(self.options,
+                self.addChild(ProgressiveDown(self.options,
                                                     self.project, child, 
                                                     self.schedule))
         
-        self.setFollowOnTarget(ProgressiveNext(self.options, self.project, self.event,
+        self.addFollowOn(ProgressiveNext(self.options, self.project, self.event,
                                                self.schedule))
-
-class ProgressiveNext(Target):
+        
+class ProgressiveNext(Job):
     def __init__(self, options, project, event, schedule):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
         self.schedule = schedule
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Next: " + self.event)
 
         if not self.schedule.isVirtual(self.event):
-            self.addChildTarget(ProgressiveUp(self.options, self.project, self.event))
+            self.addChild(ProgressiveUp(self.options, self.project, self.event))
         followOnEvent = self.schedule.followOn(self.event)
         if followOnEvent is not None:
-            self.addChildTarget(ProgressiveDown(self.options, self.project, followOnEvent,
+            self.addChild(ProgressiveDown(self.options, self.project, followOnEvent,
                                                 self.schedule))
     
-class ProgressiveUp(Target):
+class ProgressiveUp(Job):
     def __init__(self, options, project, event):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.project = project
         self.event = event
     
-    def run(self):
+    def run(self, fileStore):
         logger.info("Progressive Up: " + self.event)
 
         # open up the experiment
@@ -102,6 +101,8 @@ class ProgressiveUp(Target):
         self.options.experimentFile = self.project.expMap[self.event]
         expXml = ET.parse(self.options.experimentFile).getroot()
         experiment = ExperimentWrapper(expXml)
+        logger.info("Using sequence files: %s" % experiment.getSequences())
+
         configXml = ET.parse(experiment.getConfigPath()).getroot()
         configWrapper = ConfigWrapper(configXml)
 
@@ -143,9 +144,10 @@ class ProgressiveUp(Target):
         refDone = not workFlowArgs.buildReference or os.path.isfile(experiment.getReferencePath())
         halDone = not workFlowArgs.buildHal or (os.path.isfile(experiment.getHALFastaPath()) and
                                                 os.path.isfile(experiment.getHALPath()))
-                                                               
+        
+        
         if not workFlowArgs.overwrite and doneDone and refDone and halDone:
-            self.logToMaster("Skipping %s because it is already done and overwrite is disabled" %
+            fileStore.logToMaster("Skipping %s because it is already done and overwrite is disabled" %
                              self.event)
         else:
             system("rm -f %s" % donePath)
@@ -156,36 +158,37 @@ class ProgressiveUp(Target):
             seqPath = os.path.join(experiment.getDbDir(), "sequences")
             system("rm -f %s* %s %s" % (dbPath, seqPath, 
                                         experiment.getReferencePath()))
+            logger.info("Using sequence paths: %s" % experiment.getSequences())
 
             if workFlowArgs.configWrapper.getDoTrimStrategy() and workFlowArgs.outgroupEventNames is not None:
                 # Use the trimming strategy to blast ingroups vs outgroups.
-                self.addChildTarget(CactusTrimmingBlastPhase(cactusWorkflowArguments=workFlowArgs, phaseName="trimBlast"))
+                self.addChild(CactusTrimmingBlastPhase(cactusWorkflowArguments=workFlowArgs, phaseName="trimBlast"))
             else:
-                self.addChildTarget(CactusSetupPhase(cactusWorkflowArguments=workFlowArgs,
+                self.addChild(CactusSetupPhaseWrapper(cactusWorkflowArguments=workFlowArgs,
                                                      phaseName="setup"))
         logger.info("Going to create alignments and define the cactus tree")
 
-        self.setFollowOnTarget(FinishUp(workFlowArgs, self.project))
-                               
-class FinishUp(Target):
+        self.addFollowOn(FinishUp(workFlowArgs, self.project))
+        
+class FinishUp(Job):
     def __init__(self, workFlowArgs, project,):
-        Target.__init__(self)
+        Job.__init__(self)
         self.workFlowArgs = workFlowArgs
         self.project = project
     
-    def run(self):
+    def run(self, fileStore):
         donePath = os.path.join(os.path.dirname(self.workFlowArgs.experimentFile), "DONE")
         doneFile = open(donePath, "w")
         doneFile.write("")
         doneFile.close()
 
-class RunCactusPreprocessorThenProgressiveDown(Target):
+class RunCactusPreprocessorThenProgressiveDown(Job):
     def __init__(self, options, args):
-        Target.__init__(self)
+        Job.__init__(self)
         self.options = options
         self.args = args
         
-    def run(self):
+    def run(self, fileStore):
         #Load the multi-cactus project
         project = MultiCactusProject()
         project.readXML(self.args[0])
@@ -193,9 +196,10 @@ class RunCactusPreprocessorThenProgressiveDown(Target):
         configNode = ET.parse(project.getConfigPath()).getroot()
         ConfigWrapper(configNode).substituteAllPredefinedConstantsWithLiterals() #This is necessary..
         #Create the preprocessor
-        self.addChildTarget(CactusPreprocessor(project.getInputSequencePaths(), 
-                                               CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(), project.getOutputSequenceDir()),
-                                               configNode))
+        preprocessorOutputFiles = CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(),
+                                                                            project.getOutputSequenceDir())
+        logger.info("Preprocessor output files: %s" % preprocessorOutputFiles)
+        self.addChild(CactusPreprocessor(project.getInputSequencePaths(), preprocessorOutputFiles, configNode))
         #Now build the progressive-down target
         schedule = Schedule()
         schedule.loadProject(project)
@@ -205,13 +209,13 @@ class RunCactusPreprocessorThenProgressiveDown(Target):
         assert self.options.event in project.expMap
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)
-        self.setFollowOnTarget(ProgressiveDown(self.options, project, self.options.event, schedule))
+        self.addFollowOn(ProgressiveDown(self.options, project, self.options.event, schedule))
 
 def main():
     usage = "usage: %prog [options] <multicactus project>"
     description = "Progressive version of cactus_workflow"
     parser = OptionParser(usage=usage, description=description)
-    Stack.addJobTreeOptions(parser)
+    Job.Runner.addToilOptions(parser)
     addCactusWorkflowOptions(parser)
     
     parser.add_option("--nonRecursive", dest="nonRecursive", action="store_true",
@@ -219,7 +223,7 @@ def main():
                       default=False)
     
     parser.add_option("--event", dest="event", 
-                      help="Target event to process [default=root]", default=None)
+                      help="Job event to process [default=root]", default=None)
     
     parser.add_option("--overwrite", dest="overwrite", action="store_true",
                       help="Recompute and overwrite output files if they exist [default=False]",
@@ -231,8 +235,8 @@ def main():
     if len(args) != 1:
         parser.print_help()
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
-
-    Stack(RunCactusPreprocessorThenProgressiveDown(options, args)).startJobTree(options)
+    from cactus.progressive.cactus_progressive import RunCactusPreprocessorThenProgressiveDown as _RunCactusPreprocessorThenProgressiveDown
+    Job.Runner.startToil(_RunCactusPreprocessorThenProgressiveDown(options, args), options)
 
 if __name__ == '__main__':
     from cactus.progressive.cactus_progressive import *

@@ -175,7 +175,7 @@ class DbElemWrapper(object):
             val = self.dbElem.attrib["snapshot"]
             return val.lower() == "true" or val == "1"
         return self.getDbInMemory()
-
+    
     def setDbSnapshot(self, snapshot):
         assert self.getDbType() == "kyoto_tycoon"
         self.dbElem.attrib["snapshot"] = str(int(snapshot))
@@ -268,15 +268,38 @@ class ExperimentWrapper(DbElemWrapper):
     def setSequences(self, sequences):
         self.xmlRoot.attrib["sequences"] = " ".join(sequences)
         self.seqMap = self.buildSequenceMap()
-    def writeSequencesToFileStore(self, fileStore):
-        sequences = self.xmlRoot.attrib["sequences"].split()
-        sequenceIDs = [fileStore.writeGlobalFile(path) for path in sequences]
+
+    ##Functions for handling fileStore
+    def setSequenceIDs(self, sequenceIDs):
         self.xmlRoot.attrib["sequenceIDs"] = " ".join(sequenceIDs)
-    def readSequencesFromFileStore(self, fileStore):
+    def getSequenceIDs(self):
+        return self.xmlRoot.attrib["sequenceIDs"].split()
+    def getSequenceID(self, sequence):
+        sequences = self.xmlRoot.attrib["sequences"].split()
         sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
+        pathToID = dict(zip(sequences, sequenceIDs))
+        return pathToID[sequence]
+    def updateSequencesLocally(self, fileStore):
+        sequenceIDs = self.getSequenceIDs()
         sequences = [fileStore.readGlobalFile(fileID) for fileID in sequenceIDs]
-        self.setSequences(sequences)
+        self.xmlRoot.attrib["sequences"] = " ".join(sequences)
+    def updateSequencesInFileStore(self, fileStore):
+        sequences = self.xmlRoot.attrib["sequences"].split()
+        sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
+        for sequenceID, sequence in zip(sequenceIDs, sequences):
+            fileStore.updateGlobalFile(sequenceID, sequence)
+    def hasSequenceIDs(self):
+        return "sequenceIDs" in self.xmlRoot.attrib
+    def setAlignmentsFileID(self, alignmentsID):
+        self.xmlRoot.attrib["alignmentsID"] = alignmentsID
+    def getAlignmentsFileID(self):
+        return self.xmlRoot.attrib["alignmentsID"]
+    def getOutgroupFragmentIDs(self):
+        return self.xmlRoot.attrib["outgroupFragmentIDs"].split()
+    def setOutgroupFragmentIDs(self, outgroupFragmentIDs):
+        self.xmlRoot.attrib["outgroupFragmentIDs"] = " ".join(outgroupFragmentIDs)
     
+    #################
     def getSequences(self):
         return self.xmlRoot.attrib["sequences"].split()
     

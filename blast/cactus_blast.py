@@ -316,6 +316,7 @@ class TrimAndRecurseOnOutgroups(Job):
         outgroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
         calculateCoverage(outgroupSequenceFiles[0],
                           mostRecentResultsFile, outgroupCoverage)
+
         # The windowSize and threshold are fixed at 1: anything more
         # and we will run into problems with alignments that aren't
         # covered in a matching trimmed sequence.
@@ -327,6 +328,7 @@ class TrimAndRecurseOnOutgroups(Job):
                (trimmedOutgroup, mostRecentResultsFile,
                 outgroupConvertedResultsFile))
         
+        #assert len(open(trimmedOutgroup).readlines()) > 0
         fileStore.updateGlobalFile(self.outgroupFragmentIDs[0], trimmedOutgroup)
 
         # Report coverage of the latest outgroup on the trimmed ingroups.
@@ -334,7 +336,7 @@ class TrimAndRecurseOnOutgroups(Job):
             tmpIngroupCoverage = getTempFile(rootDir=fileStore.getLocalTempDir())
             calculateCoverage(trimmedIngroupSequence, mostRecentResultsFile,
                               tmpIngroupCoverage)
-            fileStore.logToMaster("Coverage on %s from outgroup #%d, %s: %s%% (current ingroup length %d, untrimmed length %d). Outgroup trimmed to %d bp from %d" % (os.path.basename(ingroupSequence), self.outgroupNumber, os.path.basename(outgroupSequenceFiles[0]), percentCoverage(trimmedIngroupSequence, tmpIngroupCoverage), sequenceLength(trimmedIngroupSequence), sequenceLength(ingroupSequence), sequenceLength(trimmedOutgroup), sequenceLength(outgroupSequenceFiles[0])))
+            logger.info("Coverage on %s from outgroup #%d, %s: %s%% (current ingroup length %d, untrimmed length %d). Outgroup trimmed to %d bp from %d" % (os.path.basename(ingroupSequence), self.outgroupNumber, os.path.basename(outgroupSequenceFiles[0]), percentCoverage(trimmedIngroupSequence, tmpIngroupCoverage), sequenceLength(trimmedIngroupSequence), sequenceLength(ingroupSequence), sequenceLength(trimmedOutgroup), sequenceLength(outgroupSequenceFiles[0])))
 
 
         # Convert the alignments' ingroup coordinates.
