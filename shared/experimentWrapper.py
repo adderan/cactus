@@ -184,8 +184,12 @@ class DbElemWrapper(object):
         """Removes the database that was created.
         """
         if self.getDbType() == "kyoto_tycoon":
-            system("ktremotemgr clear -port %s -host %s" % (self.getDbPort(), self.getDbHost()))
-            system("rm -rf %s" % self.getDbDir())
+            try:
+                system("ktremotemgr clear -port %s -host %s" % (self.getDbPort(), self.getDbHost()))
+                system("rm -rf %s" % self.getDbDir())
+            except RuntimeError:
+                pass
+                
         else:
             assert self.getDbDir() != None
             system("rm -rf %s" % self.getDbDir())
@@ -463,3 +467,4 @@ class ExperimentWrapper(DbElemWrapper):
     # return internal structure that maps event names to paths
     def getSequenceMap(self):
         return self.seqMap
+        

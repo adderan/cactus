@@ -69,8 +69,11 @@ def getCactusWorkflowExperimentForTest(sequences, newickTreeString, outputDir, c
     """
     halFile = os.path.join(outputDir, "test.hal")
     fastaFile = os.path.join(outputDir, "test.fa")
+    databaseConfElem = None
+    if _GLOBAL_DATABASE_CONF_STRING:
+        databaseConfElem = ET.fromstring(_GLOBAL_DATABASE_CONF_STRING)
     return ExperimentWrapper.createExperimentWrapper(sequences, newickTreeString, outputDir,
-                                    databaseConf=_GLOBAL_DATABASE_CONF_STRING, configFile=configFile,
+                                    databaseConf=databaseConfElem, configFile=configFile,
                                     halFile=halFile, fastaFile=fastaFile, constraints=constraints, progressive=progressive)
 
 def parseCactusSuiteTestOptions():

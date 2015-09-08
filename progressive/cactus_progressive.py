@@ -112,11 +112,13 @@ class ProgressiveUp(Job):
             maxParallel = min(len(self.project.expMap),
                              configWrapper.getMaxParallelSubtrees()) 
             if self.options.batchSystem == "singleMachine":
-                if int(self.options.maxThreads) < maxParallel * 3:
-                    raise RuntimeError("At least %d threads are required (only %d were specified) to handle up to %d events using kyoto tycoon. Either increase the number of threads using the --maxThreads option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, self.options.maxThreads, maxParallel, configWrapper.getMaxParallelSubtrees()))
+                pass
+                #if int(self.options.maxThreads) < maxParallel * 3:
+                 #   raise RuntimeError("At least %d threads are required (only %d were specified) to handle up to %d events using kyoto tycoon. Either increase the number of threads using the --maxThreads option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, self.options.maxThreads, maxParallel, configWrapper.getMaxParallelSubtrees()))
             else:
-                if int(self.options.maxCpus) < maxParallel * 3:
-                    raise RuntimeError("At least %d concurrent cpus are required to handle up to %d events using kyoto tycoon. Either increase the number of cpus using the --maxCpus option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, maxParallel, configWrapper.getMaxParallelSubtrees()))
+                pass
+                #if int(self.options.maxCores) < maxParallel * 3:
+                    #raise RuntimeError("At least %d concurrent cpus are required to handle up to %d events using kyoto tycoon. Either increase the number of cpus using the --maxCpus option or decrease the number of parallel jobs (currently %d) by adjusting max_parallel_subtrees in the config file" % (maxParallel * 3, maxParallel, configWrapper.getMaxParallelSubtrees()))
                     
         # take union of command line options and config options for hal and reference
         if self.options.buildReference == False:
@@ -206,6 +208,8 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         schedule.compute()
         if self.options.event == None:
             self.options.event = project.mcTree.getRootName()
+        if self.options.event not in project.expMap:
+            import pdb; pdb.set_trace()
         assert self.options.event in project.expMap
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)

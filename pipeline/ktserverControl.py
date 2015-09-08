@@ -44,12 +44,13 @@ from cactus.shared.experimentWrapper import ExperimentWrapper
 # run a server until killSwitchPath gets deleted
 # throws an exception if we were unable to launch the server
 ###############################################################################
-def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
+def runKtserver(dbElem, fileStore, killSwitchID, maxPortsToTry=100, readOnly = False,
                 createTimeout=30, loadTimeout=10000, killTimeout=518400,
                 killPingInterval=5):
-    if not os.path.isfile(killSwitchPath):
+    assert fileStore.globalFileExists(killSwitchID)
+    if not fileStore.globalFileExists(killSwitchID):
         raise RuntimeError("Kill switch file not found, can't " +
-                           "launch without it %s" % killSwitchPath)
+                           "launch without it %s" % killSwitchID)
     dbPathExists = False
     if dbElem.getDbInMemory() == False:
         if os.path.splitext(dbElem.getDbName())[1] == ".kch":
@@ -77,7 +78,7 @@ def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
             dbElem.setDbPort(port)
             if os.path.exists(logPath):
                 os.remove(logPath)
-            if __isKtServerOnTakenPort(dbElem, killSwitchPath, pretest=True):
+            if __isKtServerOnTakenPort(dbElem, fileStore, killSwitchID, pretest=True):
                 continue
             cmd = __getKtserverCommand(dbElem, dbPathExists, readOnly)
             process = subprocess.Popen(cmd.split(), shell=False, 
@@ -85,8 +86,9 @@ def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
                                        stderr=sys.stderr, bufsize=-1)
             procWaiter = ProcessWaiter(process)
             procWaiter.start()
-            __writeStatusToSwitchFile(dbElem, process.pid, killSwitchPath)
-            success = __validateKtserver(process, dbElem, killSwitchPath,
+            assert fileStore.globalFileExists(killSwitchID)
+            __writeStatusToSwitchFile(dbElem, process.pid, fileStore, killSwitchID)
+            success = __validateKtserver(process, dbElem, fileStore, killSwitchID,
                                          createTimeout, loadTimeout)
             if success is True:
                 break
@@ -105,7 +107,7 @@ def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
                 raise RuntimeError("ktserver finished before it could be " +
                                    "killed with the file. " +
                                    "  Server log is: %s" % logPath)
-            if not os.path.isfile(killSwitchPath):
+            if not fileStore.globalFileExists(killSwitchID):
                 process.terminate()
                 return True
             sleep(killPingInterval)
@@ -115,16 +117,17 @@ def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
         raise RuntimeError("Kill timeout %d reached." % killTimeout)
     
     except Exception as e:
+        import traceback; traceback.print_exc(file=sys.stdout)
         # make an attempt to alert the world of the launch failure by
         # writing some -1's to the switch file
-        switchFile = open(killSwitchPath, "w")
-        switchFile.write("-1\n-1\n-1\n")
-        switchFile.close()
+        #switchFile = open(killSwitchID, "w")
+        #switchFile.write("-1\n-1\n-1\n")
+        #switchFile.close()
 
         # if we don't kill the spawned process, the waiter thread will keep
         # this process alive which we don't want in the case of an error
-        if process is not None and process.returncode is None:
-            process.terminate()
+        #if process is not None and process.returncode is None:
+         #   process.terminate()
         #assert procWaiter is None or procWaiter.is_alive() is False
         
         raise e
@@ -132,17 +135,17 @@ def runKtserver(dbElem, killSwitchPath, maxPortsToTry=100, readOnly = False,
 ###############################################################################
 # Check status until it's successful, an error is found, or we timeout
 ###############################################################################
-def __validateKtserver(process, dbElem, killSwitchPath,
+def __validateKtserver(process, dbElem, fileStore, killSwitchID,
                        createTimeout, loadTimeout):
     success = False
     for i in xrange(createTimeout):
         if process.returncode is not None:
             break
         if __isKtServerFailed(dbElem) or __isKtServerOnTakenPort(dbElem,
-                                                                 killSwitchPath):
+                                                                 fileStore, killSwitchID):
             success = False
             break
-        if __isKtServerRunning(dbElem, killSwitchPath):
+        if __isKtServerRunning(dbElem, fileStore, killSwitchID):
             success = True
             break
         if __isKtServerReorganizing(dbElem):
@@ -162,17 +165,17 @@ def __validateKtserver(process, dbElem, killSwitchPath,
 # We use the kill-switch file to store some vital information about the
 # kterver that's not always obvious to scrape from the log file
 ###############################################################################
-def __writeStatusToSwitchFile(dbElem, serverPid, killSwitchPath):
+def __writeStatusToSwitchFile(dbElem, serverPid, fileStore, killSwitchID):
     try:
-        switchFile = open(killSwitchPath, "w")
-        switchFile.write("%s\n%d\n%d\n" % (dbElem.getDbHost(), 
-                                           int(dbElem.getDbPort()),
-                                           int(serverPid)))
-        switchFile.close()
+        with fileStore.updateGlobalFileStream(killSwitchID) as switchFile:
+            switchFile.write("%s\n%d\n%d\n" % (dbElem.getDbHost(), 
+                                               int(dbElem.getDbPort()),
+                                               int(serverPid)))
         return True
     except:
-        raise RuntimeError("Unexpected error updating killswitch file " %
-                          killSwitchPath)
+        import traceback; traceback.print_exc(file=sys.stdout)
+        raise RuntimeError("Unexpected error updating killswitch file %s" %
+                           killSwitchID)
         
 ###############################################################################
 # We use the kill-switch file to store some vital information about the
@@ -180,35 +183,36 @@ def __writeStatusToSwitchFile(dbElem, serverPid, killSwitchPath):
 # Returns false if the killswitch file is empty, true of the information was
 # able to be read. 
 ###############################################################################
-def __readStatusFromSwitchFile(dbElem, serverPidAsList, killSwitchPath):
+def __readStatusFromSwitchFile(dbElem, serverPidAsList, fileStore, killSwitchID):
     try:
         assert isinstance(serverPidAsList, list)
         assert len(serverPidAsList) == 0
-        if not os.path.isfile(killSwitchPath):
+        if not fileStore.globalFileExists(killSwitchID):
             return False
-        switchFile = open(killSwitchPath, "r")
-        host = switchFile.readline().strip()
-        port = switchFile.readline().strip()
-        serverPid = switchFile.readline().strip()
-        if host == '' or port == '' or serverPid == '':
-            return False
+        host = None
+        port = None
+        serverPid = None
+        with fileStore.readGlobalFileStream(killSwitchID) as switchFile:
+            host = switchFile.readline().strip()
+            port = switchFile.readline().strip()
+            serverPid = switchFile.readline().strip()
+            if host == '' or port == '' or serverPid == '':
+                return False
         port = int(port)
         serverPid = int(serverPid)    
     except:
+        import traceback; traceback.print_exc(file=sys.stdout)
         raise RuntimeError("Unexpected error reading killswitch file %s" %
-                          killSwitchPath)
+                           killSwitchID)
 
     if port < 0 or serverPid < 0:
         # try not to leave the switch file in an error state
-        switchFile = open(killSwitchPath, "w")
-        switchFile.write("")
-        switchFile.close()
+        #switchFile.write("")
         raise RuntimeError("Ktserver polling detected fatal error")
     
     serverPidAsList.append(serverPid)    
     dbElem.setDbPort(port)
     dbElem.setDbHost(host)
-    switchFile.close()
     return True
                                     
 
@@ -217,15 +221,15 @@ def __readStatusFromSwitchFile(dbElem, serverPidAsList, killSwitchPath):
 # Note that this function will update dbElem with the currnet host/port
 # information of the server
 ###############################################################################
-def blockUntilKtserverIsRunnning(dbElem, killSwitchPath, timeout=518400,
+def blockUntilKtserverIsRunnning(dbElem, fileStore, killSwitchID, timeout=518400,
                                  timeStep=10):
     logPath = __getLogPath(dbElem)
     for i in xrange(0, timeout, timeStep):
         if os.path.isfile(logPath) and __isKtServerRunning(dbElem,
-                                                           killSwitchPath):
+                                                           fileStore, killSwitchID):
             return True
         sleep(timeStep)
-    raise RuntimeError("Timeout reached while waiting for ktserver" %
+    raise RuntimeError("Timeout reached while waiting for ktserver %s" %
                        logPath)
 
 ###############################################################################
@@ -236,13 +240,13 @@ def blockUntilKtserverIsRunnning(dbElem, killSwitchPath, timeout=518400,
 # Note that this function will update dbElem with the currnet host/port
 # information of the server
 ###############################################################################
-def killKtServer(dbElem, killSwitchPath, killTimeout=10000):
-    if not os.path.isfile(killSwitchPath):
+def killKtServer(dbElem, fileStore, killSwitchID, killTimeout=10000):
+    if not fileStore.globalFileExists(killSwitchID):
         raise RuntimeError("Can't kill server because file" +
-                           " not found %s" % killSwitchPath)
+                           " not found %s" % killSwitchID)
     logPath = __getLogPath(dbElem)
-    isRunning =  __isKtServerRunning(dbElem, killSwitchPath)
-    os.remove(killSwitchPath)
+    isRunning =  __isKtServerRunning(dbElem, fileStore, killSwitchID)
+    fileStore.deleteGlobalFile(killSwitchID)
     logPath = __getLogPath(dbElem)
     if not isRunning:
         raise RuntimeError("Can't find running server to kill %s" % logPath)
@@ -273,7 +277,7 @@ def killKtServer(dbElem, killSwitchPath, killTimeout=10000):
 # Note that this function will update dbElem with the currnet host/port
 # information of the server
 ###############################################################################
-def __isKtServerRunning(dbElem, killSwitchPath):
+def __isKtServerRunning(dbElem, fileStore, killSwitchID):
     logPath = __getLogPath(dbElem)
     success = False
     serverPidAsList = []
@@ -288,7 +292,7 @@ def __isKtServerRunning(dbElem, killSwitchPath):
         for line in outFile.readlines():
             if line.lower().find("listening") >= 0:
                 success = __readStatusFromSwitchFile(dbElem, serverPidAsList,
-                                                     killSwitchPath)
+                                                     fileStore, killSwitchID)
             if serverPortFromLog is None and line.find("expr=") >= 0:
                 try:
                     hostPort = line[line.find("expr="):].split()[0]                    
@@ -312,11 +316,11 @@ def __isKtServerRunning(dbElem, killSwitchPath):
     if serverPidFromLog != serverPidAsList[0]:
         raise RuntimeError("Pid %s != %s (former from %s, lastter %s)" % (
             str(serverPidFromLog), str(serverPidAsList[0]),
-            logPath, killSwitchPath))
+            logPath, fileStore, killSwitchID))
     if serverPortFromLog != dbElem.getDbPort():
         raise RuntimeError("Port %s != %s (former from %s, lastter %s)" % (
             str(serverPortFromLog), str(dbElem.getDbPort()),
-            logPath, killSwitchPath))
+            logPath, fileStore, killSwitchID))
     
     return pingKtServer(dbElem)
 
@@ -411,9 +415,9 @@ def __isKtServerFailed(dbElem):
 # Ktserver can sometimes catch these errors, but often doesn't.  Once you
 # have two servers on the same port running all bets are off.
 ###############################################################################
-def __isKtServerOnTakenPort(dbElem, killSwitchPath, pretest = False):
+def __isKtServerOnTakenPort(dbElem, fileStore, killSwitchID, pretest = False):
     if __isKtServerReorganizing(dbElem) or __isKtServerRunning(dbElem,
-                                                               killSwitchPath):
+                                                               fileStore, killSwitchID):
         logPath = __getLogPath(dbElem)
         pidList = __scrapePids([logPath])
         if pretest is False:
