@@ -56,6 +56,25 @@ class BlastOptions:
         self.trimWindowSize = trimWindowSize
         self.trimOutgroupFlanking = trimOutgroupFlanking
 
+############################################################################################################
+#                                      Toil Functions
+
+def runBlast(job, blastOptions, seqID1, seqID2):
+    seq1 = job.fileStore.readGlobalFile(seqID1)
+    seq2 = job.fileStore.readGlobalFile(seqID2)
+    if blastOptions.compressFiles:
+        seq1 = decompressFastaFile(seq1, getTempFile(rootDir=job.fileStore.getLocalTempDir()))
+        seq2 = decompressFastaFile(seq2, getTempFile(rootDir=job.fileStore.getLocalTempDir()))
+    tempResultsFile = getTempFile(rootDir=job.fileStore.getLocalTempDir())
+    command = blastOptions.blastString.replace("CIGARS_FILE", tempResultsFile).replace("SEQ_FILE_1", seq1).replace("SEQ_FILE_2", seq2)
+    system(command)
+    resultsFile = getTempFile(rootDir=job.fileStore.getLocalTempDir())
+    system("cactus_blast_convertCoordinates %s %s %i" % (tempResultsFile, resultsFile, blastOptions.roundsOfCoordinateConversion))
+    logger.info("Ran the blast okay")
+    return job.fileStore.writeGlobalFile(resultsFile)
+
+########################################Toil Job Classes##################################################
+
 class BlastFlower(Job):
     """Take a reconstruction problem and generate the sequences in chunks to be blasted.
     Then setup the follow on blast targets and collation targets.
