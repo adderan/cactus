@@ -501,6 +501,11 @@ def sequenceLength(sequenceFile):
             continue
         seqLength += len(line)
     return seqLength
+def alignmentsLength(alignmentsFile):
+    length = 0
+    for line in open(alignmentsFile):
+        length += 1
+    return length
 
 def percentCoverage(sequenceFile, coverageFile):
     """Get the % coverage of a sequence from a coverage file."""

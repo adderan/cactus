@@ -62,6 +62,8 @@ from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.blast.cactus_blast import BlastIngroupsAndOutgroups
 from cactus.blast.cactus_blast import BlastFlower
 from cactus.blast.cactus_blast import BlastOptions
+from cactus.blast.cactus_blast import sequenceLength
+from cactus.blast.cactus_blast import alignmentsLength
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 
@@ -140,9 +142,9 @@ class CactusPhasesJob(CactusJob):
         if launchSecondaryKtForRecursiveJob and ExperimentWrapper(self.cactusWorkflowArguments.experimentNode).getDbType() == "kyoto_tycoon":
             cw = ConfigWrapper(self.cactusWorkflowArguments.configNode)
             memory = cw.getKtserverMemory(default=getOptionalAttrib(
-                    self.constantsNode, "defaultMemory", int, default=sys.maxint))
+                    self.constantsNode, "defaultMemory", int, default=None))
             cpu = cw.getKtserverCpu(default=getOptionalAttrib(
-                    self.constantsNode, "defaultCpu", int, default=sys.maxint))
+                    self.constantsNode, "defaultCpu", int, default=None))
             addKtserverDependentChild(self, fileStore, newChild, maxMemory=memory, maxCpu=cpu, isSecondary = True)
         else:
             self.addChild(newChild)
@@ -397,6 +399,8 @@ class CactusSetupPhaseWrapper(CactusPhasesJob):
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         logger.info("Sequence paths: %s" % exp.getSequences())
         sequences = exp.getSequences()
+        for seq in sequences:
+            assert sequenceLength(seq) > 0
         sequenceIDs = [fileStore.writeGlobalFile(path) for path in exp.getSequences()]
         exp.setSequenceIDs(sequenceIDs)
         logger.info("Setting sequence ID's to %s" % sequenceIDs)
@@ -414,6 +418,9 @@ class CactusSetupPhase(CactusPhasesJob):
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
 
         exp.updateSequencesLocally(fileStore)
+        logger.info("Length of sequences: %s" % [sequenceLength(seq) for seq in exp.getSequences()])
+        for seq in exp.getSequences():
+            assert sequenceLength(seq) > 0
         
         logger.info("Sequence IDs in CactusSetupPhase: %s" % exp.getSequenceIDs())
 
@@ -439,6 +446,8 @@ class CactusSetupPhase2(CactusPhasesJob):
         #Now run setup
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         exp.updateSequencesLocally(fileStore)
+        for seq in exp.getSequences():
+            assert sequenceLength(seq) > 0
         logger.info("Sequence ID's in cactusSetupPhase2: %s" % exp.getSequenceIDs())
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString, 
                        sequences=exp.getSequences(),
@@ -487,8 +496,10 @@ class CactusCafPhase(CactusPhasesJob):
             # that file
             assert self.getPhaseNumber() == 1
             alignmentsFile = fileStore.readGlobalFile(self.phaseNode.attrib["alignmentsID"])
+            assert alignmentsLength(alignmentsFile) > 0
             logger.info("Alignments file: %s" % alignmentsFile)
             convertedAlignmentsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
+            assert False
             # Convert the cigar file to use 64-bit cactus Names instead of the headers.
             runConvertAlignmentsToInternalNames(self.cactusWorkflowArguments.cactusDiskDatabaseString, alignmentsFile, convertedAlignmentsFile, self.topFlowerName)
             logger.info("Converted headers of cigar file %s to internal names, new file %s" % (self.phaseNode.attrib["alignmentsID"], convertedAlignmentsFile))

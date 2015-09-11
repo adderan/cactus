@@ -59,7 +59,7 @@ class TestCase(unittest.TestCase):
                                      buildAvgs=True, buildReference=True,
                                      batchSystem=self.batchSystem, buildToilStats=True)
     def testCactus_encode(self): 
-        runWorkflow_multipleExamples(getCactusInputs_encode, 
+        runWorkflow_multipleExamples(getCactusInputs_encode,
                                      testNumber=1,
                                      testRestrictions=(TestStatus.TEST_LONG,),
                                      buildAvgs=True, buildReference=True,

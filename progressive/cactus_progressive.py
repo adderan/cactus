@@ -200,7 +200,6 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         #Create the preprocessor
         preprocessorOutputFiles = CactusPreprocessor.getOutputSequenceFiles(project.getInputSequencePaths(),
                                                                             project.getOutputSequenceDir())
-        logger.info("Preprocessor output files: %s" % preprocessorOutputFiles)
         self.addChild(CactusPreprocessor(project.getInputSequencePaths(), preprocessorOutputFiles, configNode))
         #Now build the progressive-down target
         schedule = Schedule()
@@ -227,7 +226,7 @@ def main():
                       default=False)
     
     parser.add_option("--event", dest="event", 
-                      help="Job event to process [default=root]", default=None)
+                      help="Target event to process [default=root]", default=None)
     
     parser.add_option("--overwrite", dest="overwrite", action="store_true",
                       help="Recompute and overwrite output files if they exist [default=False]",

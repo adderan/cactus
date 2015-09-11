@@ -72,7 +72,7 @@ class DbElemWrapper(object):
                     dbDir = dbDir[:-1]
                 return dbDir
         return None
-    
+
     def setDbDir(self, path):
         if path[-1] == '/' and len(path) > 1:
             self.dbElem.attrib["database_dir"] = path[:-1]
@@ -188,6 +188,7 @@ class DbElemWrapper(object):
                 system("ktremotemgr clear -port %s -host %s" % (self.getDbPort(), self.getDbHost()))
                 system("rm -rf %s" % self.getDbDir())
             except RuntimeError:
+                import traceback; traceback.print_exc(file=sys.stdout)
                 pass
                 
         else:

@@ -52,6 +52,7 @@ class TestCase(unittest.TestCase):
         configWrapper.writeXML(self.configFile)
     
     def tearDown(self):
+        pass
         system("rm -rf %s" % self.tempDir)
         
 
@@ -162,18 +163,18 @@ class TestCase(unittest.TestCase):
                           rootOutgroupDist=None):
         tempDir = getTempDirectory(os.getcwd())
         tempExperimentDir = os.path.join(tempDir, "exp")
-        runCactusCreateMultiCactusProject(experimentFile, 
+        runCactusCreateMultiCactusProject(experimentFile,
                                           tempExperimentDir,
                                           fixNames = False,
                                           rootOutgroupPath=rootOutgroupPath,
                                           rootOutgroupDist=rootOutgroupDist)
         logger.info("Put the temporary files in %s" % tempExperimentDir)
-        runCactusProgressive(os.path.join(tempExperimentDir, "exp_project.xml"), 
+        runCactusProgressive(os.path.join(tempExperimentDir, "exp_project.xml"),
                              toilDir, 
                              batchSystem=batchSystem, 
                              buildAvgs=buildAvgs,
                              toilStats=toilStats)
-        #runToilStatusAndFailIfNotComplete(toilDir)
+        runToilStatusAndFailIfNotComplete(toilDir)
         system("rm -rf %s" % tempDir)
     
 def main():

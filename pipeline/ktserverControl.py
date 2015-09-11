@@ -116,21 +116,19 @@ def runKtserver(dbElem, fileStore, killSwitchID, maxPortsToTry=100, readOnly = F
         process.terminate()
         raise RuntimeError("Kill timeout %d reached." % killTimeout)
     
-    except Exception as e:
-        import traceback; traceback.print_exc(file=sys.stdout)
+    except:
+        import traceback; print(traceback.format_exc())
         # make an attempt to alert the world of the launch failure by
         # writing some -1's to the switch file
+        #with fileStore.updateGlobalFileStream(killSwitchID) as switchFile:
         #switchFile = open(killSwitchID, "w")
         #switchFile.write("-1\n-1\n-1\n")
-        #switchFile.close()
 
         # if we don't kill the spawned process, the waiter thread will keep
         # this process alive which we don't want in the case of an error
         #if process is not None and process.returncode is None:
-         #   process.terminate()
+        #   process.terminate()
         #assert procWaiter is None or procWaiter.is_alive() is False
-        
-        raise e
 
 ###############################################################################
 # Check status until it's successful, an error is found, or we timeout
