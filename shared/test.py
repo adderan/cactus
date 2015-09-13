@@ -368,5 +368,5 @@ def runWorkflow_multipleExamples(inputGenFunction,
                                                 progressive=progressive,
                                                 cactusWorkflowFunction=cactusWorkflowFunction)
             experiment.cleanupDb()
-            #system("rm -rf %s" % tempDir)
+            system("rm -rf %s" % tempDir)
             logger.info("Finished random test %i" % test)

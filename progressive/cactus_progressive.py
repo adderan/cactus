@@ -40,6 +40,7 @@ from cactus.pipeline.cactus_workflow import addCactusWorkflowOptions
 from cactus.pipeline.cactus_workflow import findRequiredNode
 from cactus.pipeline.cactus_workflow import CactusSetupPhaseWrapper
 from cactus.pipeline.cactus_workflow import CactusTrimmingBlastPhase
+from cactus.blast.cactus_blast import sequenceLength
 
 from cactus.progressive.multiCactusProject import MultiCactusProject
 from cactus.progressive.multiCactusTree import MultiCactusTree
@@ -102,6 +103,8 @@ class ProgressiveUp(Job):
         expXml = ET.parse(self.options.experimentFile).getroot()
         experiment = ExperimentWrapper(expXml)
         logger.info("Using sequence files: %s" % experiment.getSequences())
+        for seq in experiment.getSequences():
+            assert sequenceLength(seq) > 0
 
         configXml = ET.parse(experiment.getConfigPath()).getroot()
         configWrapper = ConfigWrapper(configXml)
