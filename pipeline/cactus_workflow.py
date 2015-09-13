@@ -62,7 +62,6 @@ from cactus.shared.experimentWrapper import ExperimentWrapper
 from cactus.blast.cactus_blast import BlastIngroupsAndOutgroups
 from cactus.blast.cactus_blast import BlastFlower
 from cactus.blast.cactus_blast import BlastOptions
-from cactus.blast.cactus_blast import sequenceLength
 from cactus.blast.cactus_blast import alignmentsLength
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
@@ -399,8 +398,6 @@ class CactusSetupPhaseWrapper(CactusPhasesJob):
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         logger.info("Sequence paths: %s" % exp.getSequences())
         sequences = exp.getSequences()
-        for seq in sequences:
-            assert sequenceLength(seq) > 0
         sequenceIDs = [fileStore.writeGlobalFile(path) for path in exp.getSequences()]
         exp.setSequenceIDs(sequenceIDs)
         logger.info("Setting sequence ID's to %s" % sequenceIDs)
@@ -418,9 +415,6 @@ class CactusSetupPhase(CactusPhasesJob):
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
 
         exp.updateSequencesLocally(fileStore)
-        logger.info("Length of sequences: %s" % [sequenceLength(seq) for seq in exp.getSequences()])
-        for seq in exp.getSequences():
-            assert sequenceLength(seq) > 0
         
         logger.info("Sequence IDs in CactusSetupPhase: %s" % exp.getSequenceIDs())
 
@@ -446,8 +440,6 @@ class CactusSetupPhase2(CactusPhasesJob):
         #Now run setup
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         exp.updateSequencesLocally(fileStore)
-        for seq in exp.getSequences():
-            assert sequenceLength(seq) > 0
         logger.info("Sequence ID's in cactusSetupPhase2: %s" % exp.getSequenceIDs())
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString, 
                        sequences=exp.getSequences(),
