@@ -72,7 +72,7 @@ class DbElemWrapper(object):
                     dbDir = dbDir[:-1]
                 return dbDir
         return None
-
+    
     def setDbDir(self, path):
         if path[-1] == '/' and len(path) > 1:
             self.dbElem.attrib["database_dir"] = path[:-1]
@@ -175,7 +175,7 @@ class DbElemWrapper(object):
             val = self.dbElem.attrib["snapshot"]
             return val.lower() == "true" or val == "1"
         return self.getDbInMemory()
-    
+
     def setDbSnapshot(self, snapshot):
         assert self.getDbType() == "kyoto_tycoon"
         self.dbElem.attrib["snapshot"] = str(int(snapshot))
@@ -184,13 +184,8 @@ class DbElemWrapper(object):
         """Removes the database that was created.
         """
         if self.getDbType() == "kyoto_tycoon":
-            try:
-                system("ktremotemgr clear -port %s -host %s" % (self.getDbPort(), self.getDbHost()))
-                system("rm -rf %s" % self.getDbDir())
-            except RuntimeError:
-                import traceback; traceback.print_exc(file=sys.stdout)
-                pass
-                
+            system("ktremotemgr clear -port %s -host %s" % (self.getDbPort(), self.getDbHost()))
+            system("rm -rf %s" % self.getDbDir())
         else:
             assert self.getDbDir() != None
             system("rm -rf %s" % self.getDbDir())
@@ -273,38 +268,7 @@ class ExperimentWrapper(DbElemWrapper):
     def setSequences(self, sequences):
         self.xmlRoot.attrib["sequences"] = " ".join(sequences)
         self.seqMap = self.buildSequenceMap()
-
-    ##Functions for handling fileStore
-    def setSequenceIDs(self, sequenceIDs):
-        self.xmlRoot.attrib["sequenceIDs"] = " ".join(sequenceIDs)
-    def getSequenceIDs(self):
-        return self.xmlRoot.attrib["sequenceIDs"].split()
-    def getSequenceID(self, sequence):
-        sequences = self.xmlRoot.attrib["sequences"].split()
-        sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
-        pathToID = dict(zip(sequences, sequenceIDs))
-        return pathToID[sequence]
-    def updateSequencesLocally(self, fileStore):
-        sequenceIDs = self.getSequenceIDs()
-        sequences = [fileStore.readGlobalFile(fileID) for fileID in sequenceIDs]
-        self.xmlRoot.attrib["sequences"] = " ".join(sequences)
-    def updateSequencesInFileStore(self, fileStore):
-        sequences = self.xmlRoot.attrib["sequences"].split()
-        sequenceIDs = self.xmlRoot.attrib["sequenceIDs"].split()
-        for sequenceID, sequence in zip(sequenceIDs, sequences):
-            fileStore.updateGlobalFile(sequenceID, sequence)
-    def hasSequenceIDs(self):
-        return "sequenceIDs" in self.xmlRoot.attrib
-    def setAlignmentsFileID(self, alignmentsID):
-        self.xmlRoot.attrib["alignmentsID"] = alignmentsID
-    def getAlignmentsFileID(self):
-        return self.xmlRoot.attrib["alignmentsID"]
-    def getOutgroupFragmentIDs(self):
-        return self.xmlRoot.attrib["outgroupFragmentIDs"].split()
-    def setOutgroupFragmentIDs(self, outgroupFragmentIDs):
-        self.xmlRoot.attrib["outgroupFragmentIDs"] = " ".join(outgroupFragmentIDs)
     
-    #################
     def getSequences(self):
         return self.xmlRoot.attrib["sequences"].split()
     
@@ -468,4 +432,3 @@ class ExperimentWrapper(DbElemWrapper):
     # return internal structure that maps event names to paths
     def getSequenceMap(self):
         return self.seqMap
-        

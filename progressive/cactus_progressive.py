@@ -38,7 +38,7 @@ from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 from cactus.pipeline.cactus_workflow import CactusWorkflowArguments
 from cactus.pipeline.cactus_workflow import addCactusWorkflowOptions
 from cactus.pipeline.cactus_workflow import findRequiredNode
-from cactus.pipeline.cactus_workflow import CactusSetupPhaseWrapper
+from cactus.pipeline.cactus_workflow import CactusSetupPhase
 from cactus.pipeline.cactus_workflow import CactusTrimmingBlastPhase
 from cactus.blast.cactus_blast import sequenceLength
 
@@ -169,7 +169,7 @@ class ProgressiveUp(Job):
                 # Use the trimming strategy to blast ingroups vs outgroups.
                 self.addChild(CactusTrimmingBlastPhase(cactusWorkflowArguments=workFlowArgs, phaseName="trimBlast"))
             else:
-                self.addChild(CactusSetupPhaseWrapper(cactusWorkflowArguments=workFlowArgs,
+                self.addChild(CactusSetupPhase(cactusWorkflowArguments=workFlowArgs,
                                                      phaseName="setup"))
         logger.info("Going to create alignments and define the cactus tree")
 
