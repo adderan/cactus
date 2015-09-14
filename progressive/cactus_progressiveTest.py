@@ -53,7 +53,7 @@ class TestCase(unittest.TestCase):
     
     def tearDown(self):
         system("rm -rf %s" % self.tempDir)
-
+    @unittest.skip("")
     def testCactus_Random(self):
         runWorkflow_multipleExamples(getCactusInputs_random, 
                                      testNumber=2,
@@ -72,7 +72,7 @@ class TestCase(unittest.TestCase):
                                      progressive=True,
                                      configFile=self.configFile,
                                      cactusWorkflowFunction=self.progressiveFunction)
-    @unittest.skip("")
+
     def testCactus_Random_UseRootOutgroup(self):
         runWorkflow_multipleExamples(getCactusInputs_random, 
                                      testNumber=2,
@@ -111,7 +111,7 @@ class TestCase(unittest.TestCase):
                                      progressive=True,
                                      configFile=self.configFile,
                                      cactusWorkflowFunction=self.progressiveFunction)
-
+    @unittest.skip("")
     def testCactus_Blanchette_UseOutgroupAndDoSelfAlignment(self):
         self.useOutgroup = True
         self.doSelfAlignment = True

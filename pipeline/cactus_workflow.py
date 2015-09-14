@@ -324,19 +324,21 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         # Prepend unique ID to fasta headers to prevent name collision
         renamedInputSeqDir = getTempDirectory(rootDir=fileStore.getLocalTempDir())
         uniqueFas = prependUniqueIDs(seqMap.values(), renamedInputSeqDir)
+        uniqueFaIDs = dict(zip(uniqueFas, [fileStore.writeGlobalFile(path) for path in uniqueFas]))
 
         seqMap = dict(zip(seqMap.keys(), uniqueFas))
-        seqIDMap= dict(zip(seqMap.keys(), [fileStore.writeGlobalFile(seq) for seq in uniqueFas]))
                     
-        ingroupIDs = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqIDMap.items()))
-        outgroupIDs = [seqIDMap[i] for i in exp.getOutgroupEvents()]
-        logger.info("Ingroups: %s" % (ingroupIDs))
-        logger.info("Outgroups: %s" % (outgroupIDs))
+        ingroups = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqMap.items()))
+        outgroups = [seqMap[i] for i in exp.getOutgroupEvents()]
+        logger.info("Ingroups: %s" % (ingroups))
+        logger.info("Outgroups: %s" % (outgroups))
 
         # Change the blast arguments depending on the divergence
         setupDivergenceArgs(self.cactusWorkflowArguments)
         setupFilteringByIdentity(self.cactusWorkflowArguments)
 
+        ingroupIDs = [uniqueFaIDs[path] for path in ingroups]
+        outgroupIDs = [uniqueFaIDs[path] for path in outgroups]
         alignmentsFileID = fileStore.getEmptyFileStoreID()
         outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in xrange(len(outgroupIDs))]
 
@@ -357,13 +359,17 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
                                                        trimOutgroupFlanking=self.getOptionalPhaseAttrib("trimOutgroupFlanking", int, 100)), ingroupIDs, outgroupIDs, alignmentsFileID, outgroupFragmentIDs))
         # Point the outgroup sequences to their trimmed versions for
         # phases after this one.
-
+        self.alignmentsID = alignmentsFileID
+        logger.info("Old sequence IDs: %s" % uniqueFaIDs.values())
         outgroupFragmentsMap = dict(zip(outgroupIDs, outgroupFragmentIDs))
-        for outgroup in exp.getOutgroupEvents():
-            oldID = seqIDMap[outgroup]
-            seqIDMap[outgroup] = outgroupFragmentsMap[oldID]
-        self.sequenceIDs = seqIDMap.values()
-                                        
+        for outgroup in outgroups:
+            uniqueFaIDs[outgroup] = outgroupFragmentsMap[uniqueFaIDs[outgroup]]
+        self.sequenceIDs = uniqueFaIDs.values()
+        logger.info("Ingroup IDs: %s" % ingroupIDs)
+        logger.info("Outgroup IDs: %s" % outgroupIDs)
+        logger.info("New outgroup IDs: %s" % outgroupFragmentIDs)
+        logger.info("New sequence IDs: %s" % uniqueFaIDs.values())
+        
         self.makeFollowOnPhaseJob(CactusSetupPhase, "setup")
 
 ############################################################
@@ -399,6 +405,8 @@ class CactusSetupPhase(CactusPhasesJob):
         if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
+            for seq in sequences:
+                assert sequenceLength(seq) > 0
             self.sequenceIDs = [fileStore.writeGlobalFile(seq) for seq in sequences]
 
         # we circumvent makeFollowOnPhaseJob() interface for this job.
