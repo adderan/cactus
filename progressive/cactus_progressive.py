@@ -58,6 +58,10 @@ class ProgressiveDown(Job):
     
     def run(self, fileStore):
         logger.info("Progressive Down: " + self.event)
+        preprocessorOutputFiles = CactusPreprocessor.getOutputSequenceFiles(self.project.getInputSequencePaths(),
+                                                                            self.project.getOutputSequenceDir())
+        for seq in preprocessorOutputFiles:
+            assert os.path.exists(seq)
         
         if not self.options.nonRecursive:
             deps = self.schedule.deps(self.event)
@@ -102,9 +106,6 @@ class ProgressiveUp(Job):
         self.options.experimentFile = self.project.expMap[self.event]
         expXml = ET.parse(self.options.experimentFile).getroot()
         experiment = ExperimentWrapper(expXml)
-        logger.info("Using sequence files: %s" % experiment.getSequences())
-        for seq in experiment.getSequences():
-            assert sequenceLength(seq) > 0
 
         configXml = ET.parse(experiment.getConfigPath()).getroot()
         configWrapper = ConfigWrapper(configXml)
@@ -241,8 +242,8 @@ def main():
     if len(args) != 1:
         parser.print_help()
         raise RuntimeError("Unrecognised input arguments: %s" % " ".join(args))
-    from cactus.progressive.cactus_progressive import RunCactusPreprocessorThenProgressiveDown as _RunCactusPreprocessorThenProgressiveDown
-    Job.Runner.startToil(_RunCactusPreprocessorThenProgressiveDown(options, args), options)
+    #from cactus.progressive.cactus_progressive import RunCactusPreprocessorThenProgressiveDown as _RunCactusPreprocessorThenProgressiveDown
+    Job.Runner.startToil(RunCactusPreprocessorThenProgressiveDown(options, args), options)
 
 if __name__ == '__main__':
     from cactus.progressive.cactus_progressive import *

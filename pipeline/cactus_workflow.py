@@ -396,11 +396,7 @@ class CactusSetupPhase(CactusPhasesJob):
 
         #Get the db running and the actual setup going.
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
-        sequences = None
-        if self.sequenceIDs:
-            #Trim-blast was run before this
-            sequences = [fileStore.readGlobalFile(seqID) for seqID in self.sequenceIDs]
-        else:
+        if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
             self.sequenceIDs = [fileStore.writeGlobalFile(seq) for seq in sequences]
