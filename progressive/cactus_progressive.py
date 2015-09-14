@@ -211,8 +211,6 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         schedule.compute()
         if self.options.event == None:
             self.options.event = project.mcTree.getRootName()
-        if self.options.event not in project.expMap:
-            import pdb; pdb.set_trace()
         assert self.options.event in project.expMap
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)

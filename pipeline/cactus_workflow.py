@@ -365,10 +365,12 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         for outgroup in outgroups:
             uniqueFaIDs[outgroup] = outgroupFragmentsMap[uniqueFaIDs[outgroup]]
         self.sequenceIDs = uniqueFaIDs.values()
-        logger.info("Ingroup IDs: %s" % ingroupIDs)
-        logger.info("Outgroup IDs: %s" % outgroupIDs)
-        logger.info("New outgroup IDs: %s" % outgroupFragmentIDs)
-        logger.info("New sequence IDs: %s" % uniqueFaIDs.values())
+        for seqID in outgroupIDs:
+            assert seqID not in self.sequenceIDs
+        for seqID in outgroupFragmentIDs:
+            assert seqID in self.sequenceIDs
+        for seqID in ingroupIDs:
+            assert seqID in self.sequenceIDs
         
         self.makeFollowOnPhaseJob(CactusSetupPhase, "setup")
 
@@ -402,6 +404,7 @@ class CactusSetupPhase(CactusPhasesJob):
 
         #Get the db running and the actual setup going.
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
+        assert self.sequenceIDs
         if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
@@ -476,7 +479,6 @@ class CactusCafPhase(CactusPhasesJob):
             # that file
             assert self.getPhaseNumber() == 1
             alignmentsFile = fileStore.readGlobalFile(self.alignmentsID)
-            assert alignmentsLength(alignmentsFile) > 0
             logger.info("Alignments file: %s" % alignmentsFile)
             convertedAlignmentsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
             # Convert the cigar file to use 64-bit cactus Names instead of the headers.
