@@ -328,14 +328,13 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
         uniqueFaIDs = dict(zip(uniqueFas, [fileStore.writeGlobalFile(path) for path in uniqueFas]))
 
         seqMap = dict(zip(seqMap.keys(), uniqueFas))
-                    
+        
         ingroups = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqMap.items()))
         outgroups = [seqMap[i] for i in exp.getOutgroupEvents()]
-        for seq in outgroups:
-            shutil.copy(seq, "/home/alden/Desktop/Outgroups/")
+
         logger.info("Ingroups: %s" % (ingroups))
         logger.info("Outgroups: %s" % (outgroups))
-
+        
         # Change the blast arguments depending on the divergence
         setupDivergenceArgs(self.cactusWorkflowArguments)
         setupFilteringByIdentity(self.cactusWorkflowArguments)
@@ -409,6 +408,7 @@ class CactusSetupPhase(CactusPhasesJob):
 
         #Get the db running and the actual setup going.
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
+        assert self.sequenceIDs
         if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
@@ -437,17 +437,16 @@ class CactusSetupPhase2(CactusPhasesJob):
         #Now run setup
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         sequences = [fileStore.readGlobalFile(seqID) for seqID in self.sequenceIDs]
-        for seq in sequences:
-            shutil.copy(seq, "/home/alden/Desktop/CactusSequences")
         logger.info("Seq to ID Mapping: %s" % dict(zip(sequences, self.sequenceIDs)))
+        for seq in sequences:
+            shutil.copy(seq, "/home/alden/Desktop/sequencesToilBranch")
         assert False
+
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString,
                        sequences=sequences,
                        newickTreeString=self.cactusWorkflowArguments.speciesTree, 
                        outgroupEvents=self.cactusWorkflowArguments.outgroupEventNames,
                        makeEventHeadersAlphaNumeric=self.getOptionalPhaseAttrib("makeEventHeadersAlphaNumeric", bool, False))
-        for seqID, seq in zip(self.sequenceIDs, sequences):
-            fileStore.updateGlobalFile(seqID, seq)
 
         for message in messages:
             logger.info(message)
