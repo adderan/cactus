@@ -4,7 +4,6 @@
 #include "sonLib.h"
 #include "pairwiseAlignment.h"
 #include "bioioC.h"
-#include <inttypes.h>
 
 static void usage(void)
 {

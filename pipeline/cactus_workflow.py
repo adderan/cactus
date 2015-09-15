@@ -63,6 +63,7 @@ from cactus.blast.cactus_blast import BlastIngroupsAndOutgroups
 from cactus.blast.cactus_blast import BlastFlower
 from cactus.blast.cactus_blast import BlastOptions
 from cactus.blast.cactus_blast import alignmentsLength
+from cactus.blast.cactus_blast import sequenceLength
 
 from cactus.preprocessor.cactus_preprocessor import CactusPreprocessor
 
@@ -330,6 +331,8 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
                     
         ingroups = map(lambda x: x[1], filter(lambda x: x[0] not in exp.getOutgroupEvents(), seqMap.items()))
         outgroups = [seqMap[i] for i in exp.getOutgroupEvents()]
+        for seq in outgroups:
+            shutil.copy(seq, "/home/alden/Desktop/Outgroups/")
         logger.info("Ingroups: %s" % (ingroups))
         logger.info("Outgroups: %s" % (outgroups))
 
@@ -339,7 +342,7 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
 
         ingroupIDs = [uniqueFaIDs[path] for path in ingroups]
         outgroupIDs = [uniqueFaIDs[path] for path in outgroups]
-        alignmentsFileID = fileStore.getEmptyFileStoreID()
+        self.alignmentsID = fileStore.getEmptyFileStoreID()
         outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in xrange(len(outgroupIDs))]
 
         # FIXME: this is really ugly and steals the options from the caf tag
@@ -356,10 +359,9 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
                                                        trimMinSize=self.getOptionalPhaseAttrib("trimMinSize", int, 0),
                                                        trimThreshold=self.getOptionalPhaseAttrib("trimThreshold", float, 0.8),
                                                        trimWindowSize=self.getOptionalPhaseAttrib("trimWindowSize", int, 10),
-                                                       trimOutgroupFlanking=self.getOptionalPhaseAttrib("trimOutgroupFlanking", int, 100)), ingroupIDs, outgroupIDs, alignmentsFileID, outgroupFragmentIDs))
+                                                       trimOutgroupFlanking=self.getOptionalPhaseAttrib("trimOutgroupFlanking", int, 100)), ingroupIDs, outgroupIDs, self.alignmentsID, outgroupFragmentIDs))
         # Point the outgroup sequences to their trimmed versions for
         # phases after this one.
-        self.alignmentsID = alignmentsFileID
         logger.info("Old sequence IDs: %s" % uniqueFaIDs.values())
         outgroupFragmentsMap = dict(zip(outgroupIDs, outgroupFragmentIDs))
         for outgroup in outgroups:
@@ -371,6 +373,9 @@ class CactusTrimmingBlastPhase(CactusPhasesJob):
             assert seqID in self.sequenceIDs
         for seqID in ingroupIDs:
             assert seqID in self.sequenceIDs
+        logger.critical("Ingroup IDs: %s" % ingroupIDs)
+        logger.critical("outgroup fragment IDs: %s", outgroupFragmentIDs)
+        logger.critical("Sequence IDs: %s", self.sequenceIDs)
         
         self.makeFollowOnPhaseJob(CactusSetupPhase, "setup")
 
@@ -404,7 +409,6 @@ class CactusSetupPhase(CactusPhasesJob):
 
         #Get the db running and the actual setup going.
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
-        assert self.sequenceIDs
         if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
@@ -433,11 +437,17 @@ class CactusSetupPhase2(CactusPhasesJob):
         #Now run setup
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         sequences = [fileStore.readGlobalFile(seqID) for seqID in self.sequenceIDs]
+        for seq in sequences:
+            shutil.copy(seq, "/home/alden/Desktop/CactusSequences")
+        logger.info("Seq to ID Mapping: %s" % dict(zip(sequences, self.sequenceIDs)))
+        assert False
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString,
                        sequences=sequences,
                        newickTreeString=self.cactusWorkflowArguments.speciesTree, 
                        outgroupEvents=self.cactusWorkflowArguments.outgroupEventNames,
                        makeEventHeadersAlphaNumeric=self.getOptionalPhaseAttrib("makeEventHeadersAlphaNumeric", bool, False))
+        for seqID, seq in zip(self.sequenceIDs, sequences):
+            fileStore.updateGlobalFile(seqID, seq)
 
         for message in messages:
             logger.info(message)
@@ -479,7 +489,7 @@ class CactusCafPhase(CactusPhasesJob):
             # that file
             assert self.getPhaseNumber() == 1
             alignmentsFile = fileStore.readGlobalFile(self.alignmentsID)
-            logger.info("Alignments file: %s" % alignmentsFile)
+            logger.info("Alignments file ID: %s" % self.alignmentsID)
             convertedAlignmentsFile = getTempFile(rootDir=fileStore.getLocalTempDir())
             # Convert the cigar file to use 64-bit cactus Names instead of the headers.
             runConvertAlignmentsToInternalNames(self.cactusWorkflowArguments.cactusDiskDatabaseString, alignmentsFile, convertedAlignmentsFile, self.topFlowerName)

@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
       getReferenceSequences(fileHandle, flower, referenceEventString);
     }
     else {
-      st_errAbort("cactus_getReferenceSeq found no reference sequence in empty cactus disk %s",
+      st_logCritical("cactus_getReferenceSeq found no reference sequence in empty cactus disk %s",
                      cactusDiskDatabaseString);
     }
     fclose(fileHandle);
