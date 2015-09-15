@@ -438,9 +438,6 @@ class CactusSetupPhase2(CactusPhasesJob):
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         sequences = [fileStore.readGlobalFile(seqID) for seqID in self.sequenceIDs]
         logger.info("Seq to ID Mapping: %s" % dict(zip(sequences, self.sequenceIDs)))
-        for seq in sequences:
-            shutil.copy(seq, "/home/alden/Desktop/sequencesToilBranch")
-        assert False
 
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString,
                        sequences=sequences,
