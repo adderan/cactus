@@ -218,7 +218,7 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         except os.error:
             pass
         for outgroupID, outgroupPath in zip(outgroupSequenceFileIDs, self.outgroupSequenceFiles):
-            self.addFollowOn(WritePermanentFile(outgroupID, os.path.basename(outgroupPath)))
+            self.addFollowOn(WritePermanentFile(outgroupID, os.path.join(self.outgroupFragmentsDir, os.path.basename(outgroupPath))))
 
 
 class BlastIngroupsAndOutgroups(Job):
@@ -327,7 +327,6 @@ class TrimAndRecurseOnOutgroups(Job):
         system("cactus_upconvertCoordinates.py %s %s 1 > %s" %\
                (trimmedOutgroup, mostRecentResultsFile,
                 outgroupConvertedResultsFile))
-        assert sequenceLength(trimmedOutgroup) > 0
         
         #assert len(open(trimmedOutgroup).readlines()) > 0
         fileStore.updateGlobalFile(self.outgroupFragmentIDs[0], trimmedOutgroup)
@@ -349,7 +348,6 @@ class TrimAndRecurseOnOutgroups(Job):
         else:
             system("cactus_blast_convertCoordinates --onlyContig1 %s %s 1" % (
                 outgroupConvertedResultsFile, ingroupConvertedResultsFile))
-        assert sequenceLength(ingroupConvertedResultsFile) > 0
         
         # Append the latest results to the accumulated outgroup coverage file
         outputFile = fileStore.readGlobalFile(self.outputFileID)

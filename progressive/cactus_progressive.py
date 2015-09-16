@@ -212,7 +212,6 @@ class RunCactusPreprocessorThenProgressiveDown(Job):
         if self.options.event == None:
             self.options.event = project.mcTree.getRootName()
         assert self.options.event in project.expMap
-        assert False
         leafNames = [ project.mcTree.getName(i) for i in project.mcTree.getLeaves() ]
         self.options.globalLeafEventSet = set(leafNames)
         self.addFollowOn(ProgressiveDown(self.options, project, self.options.event, schedule))

@@ -408,12 +408,10 @@ class CactusSetupPhase(CactusPhasesJob):
 
         #Get the db running and the actual setup going.
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
-        assert self.sequenceIDs
         if not self.sequenceIDs:
             #Trim-blast wasn't run, so the sequences are not in the fileStore yet
             sequences = exp.getSequences()
-            for seq in sequences:
-                assert sequenceLength(seq) > 0
+
             self.sequenceIDs = [fileStore.writeGlobalFile(seq) for seq in sequences]
 
         # we circumvent makeFollowOnPhaseJob() interface for this job.
@@ -437,6 +435,8 @@ class CactusSetupPhase2(CactusPhasesJob):
         #Now run setup
         exp = ExperimentWrapper(self.cactusWorkflowArguments.experimentNode)
         sequences = [fileStore.readGlobalFile(seqID) for seqID in self.sequenceIDs]
+        for seq in sequences:
+            assert os.path.exists(seq)
         logger.info("Seq to ID Mapping: %s" % dict(zip(sequences, self.sequenceIDs)))
 
         messages = runCactusSetup(cactusDiskDatabaseString=self.cactusWorkflowArguments.cactusDiskDatabaseString,
