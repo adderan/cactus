@@ -209,7 +209,7 @@ class BlastIngroupsAndOutgroupsWrapper(Job):
         ingroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.ingroupSequenceFiles]
         outgroupSequenceFileIDs = [fileStore.writeGlobalFile(path) for path in self.outgroupSequenceFiles]
         finalResultsFileID = fileStore.getEmptyFileStoreID()
-        outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for i in xrange(len(outgroupSequenceFileIDs))]
+        outgroupFragmentIDs = [fileStore.getEmptyFileStoreID() for path in self.outgroupSequenceFiles]
         self.addChild(BlastIngroupsAndOutgroups(self.blastOptions, ingroupSequenceFileIDs, outgroupSequenceFileIDs, finalResultsFileID, outgroupFragmentIDs))
         self.addFollowOn(WritePermanentFile(finalResultsFileID, self.finalResultsFile))
 
@@ -327,6 +327,7 @@ class TrimAndRecurseOnOutgroups(Job):
         system("cactus_upconvertCoordinates.py %s %s 1 > %s" %\
                (trimmedOutgroup, mostRecentResultsFile,
                 outgroupConvertedResultsFile))
+        assert sequenceLength(trimmedOutgroup) > 0
         
         #assert len(open(trimmedOutgroup).readlines()) > 0
         fileStore.updateGlobalFile(self.outgroupFragmentIDs[0], trimmedOutgroup)
@@ -348,6 +349,7 @@ class TrimAndRecurseOnOutgroups(Job):
         else:
             system("cactus_blast_convertCoordinates --onlyContig1 %s %s 1" % (
                 outgroupConvertedResultsFile, ingroupConvertedResultsFile))
+        assert sequenceLength(ingroupConvertedResultsFile) > 0
         
         # Append the latest results to the accumulated outgroup coverage file
         outputFile = fileStore.readGlobalFile(self.outputFileID)
@@ -396,10 +398,9 @@ class TrimAndRecurseOnOutgroups(Job):
                            threshold=self.blastOptions.trimThreshold,
                            windowSize=self.blastOptions.trimWindowSize)
                 trimmedSeqs.append(trimmed)
-            for seqID, trimmedSeq in zip(self.sequenceFileIDs, trimmedSeqs):
-                fileStore.updateGlobalFile(seqID, trimmedSeq)
+            trimmedSeqIDs = [fileStore.writeGlobalFile(seq) for seq in trimmedSeqs]
             self.addChild(BlastFirstOutgroup(self.untrimmedSequenceFileIDs,
-                                                   self.sequenceFileIDs,
+                                                   trimmedSeqIDs,
                                                    self.outgroupSequenceFileIDs[1:],
                                                    self.outgroupFragmentIDs[1:],
                                                    self.outputFileID,
