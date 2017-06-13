@@ -411,18 +411,20 @@ def decompressFastaFile(fileName, tempFileName):
 class RunSelfBlast(RoundedJob):
     """Runs blast as a job.
     """
-    def __init__(self, blastOptions, seqFileID):
+    def __init__(self, blastOptions, seqFileID, samplingRatesID=None):
         disk = 3*seqFileID.size
         memory = 3*seqFileID.size
         
         RoundedJob.__init__(self, memory=memory, disk=disk, preemptable=True)
         self.blastOptions = blastOptions
         self.seqFileID = seqFileID
+        self.samplingRatesID = samplingRatesID
     
     def run(self, fileStore):   
         blastResultsFile = fileStore.getLocalTempFile()
         seqFile = fileStore.readGlobalFile(self.seqFileID)
-        runSelfLastz(seqFile, blastResultsFile, lastzArguments=self.blastOptions.lastzArguments)
+        samplingRates = fileStore.readGlobalFile(self.samplingRatesID) if self.samplingRatesID else None
+        runSelfLastz(seqFile, blastResultsFile, lastzArguments=self.blastOptions.lastzArguments, samplingRates=samplingRates)
         if self.blastOptions.realign:
             realignResultsFile = fileStore.getLocalTempFile()
             runCactusSelfRealign(seqFile, inputAlignmentsFile=blastResultsFile,
@@ -443,7 +445,7 @@ class RunSelfBlast(RoundedJob):
 class RunBlast(RoundedJob):
     """Runs blast as a job.
     """
-    def __init__(self, blastOptions, seqFileID1, seqFileID2):
+    def __init__(self, blastOptions, seqFileID1, seqFileID2, samplingRatesID=None):
         if hasattr(seqFileID1, "size") and hasattr(seqFileID2, "size"):
             disk = 2*(seqFileID1.size + seqFileID2.size)
             memory = 2*(seqFileID1.size + seqFileID2.size)
@@ -454,6 +456,7 @@ class RunBlast(RoundedJob):
         self.blastOptions = blastOptions
         self.seqFileID1 = seqFileID1
         self.seqFileID2 = seqFileID2
+        self.samplingRatesID = samplingRatesID
     
     def run(self, fileStore):
         seqFile1 = fileStore.readGlobalFile(self.seqFileID1)
@@ -462,8 +465,9 @@ class RunBlast(RoundedJob):
             seqFile1 = decompressFastaFile(seqFile1, fileStore.getLocalTempFile())
             seqFile2 = decompressFastaFile(seqFile2, fileStore.getLocalTempFile())
         blastResultsFile = fileStore.getLocalTempFile()
+        samplingRates = fileStore.readGlobalFile(self.samplingRatesID) if self.samplingRatesID else None
 
-        runLastz(seqFile1, seqFile2, blastResultsFile, lastzArguments = self.blastOptions.lastzArguments)
+        runLastz(seqFile1, seqFile2, blastResultsFile, lastzArguments = self.blastOptions.lastzArguments, samplingRates=samplingRates)
         if self.blastOptions.realign:
             realignResultsFile = fileStore.getLocalTempFile()
             runCactusRealign(seqFile1, seqFile2, inputAlignmentsFile=blastResultsFile,

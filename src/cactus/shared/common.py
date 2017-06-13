@@ -727,28 +727,34 @@ def runToilStatusAndFailIfNotComplete(toilDir):
     command = "toil status %s --failIfNotComplete --verbose" % toilDir
     system(command)
 
-def runLastz(seq1, seq2, alignmentsFile, lastzArguments, work_dir=None):
+def runLastz(seq1, seq2, alignmentsFile, lastzArguments, work_dir=None, samplingRates=None):
     #Have to specify the work_dir manually for this, since
     #we're adding arguments to the filename
     assert os.path.dirname(seq1) == os.path.dirname(seq2)
     work_dir = os.path.dirname(seq1)
-    cactus_call(work_dir=work_dir, outfile=alignmentsFile,
-                parameters=["cPecanLastz",
+    parameters = ["cPecanLastz",
                             "--format=cigar",
                             "--notrivial",
                             lastzArguments,
                             "%s[multiple][nameparse=darkspace]" % os.path.basename(seq1),
-                            "%s[nameparse=darkspace]" % os.path.basename(seq2)])
-
-def runSelfLastz(seq, alignmentsFile, lastzArguments, work_dir=None):
-    work_dir = os.path.dirname(seq)
+                            "%s[nameparse=darkspace]" % os.path.basename(seq2)]
+    if samplingRates:
+        parameters += ["--samplingRates", samplingRates]
     cactus_call(work_dir=work_dir, outfile=alignmentsFile,
-                parameters=["cPecanLastz",
+                parameters=parameters)
+
+def runSelfLastz(seq, alignmentsFile, lastzArguments, work_dir=None, samplingRates=None):
+    work_dir = os.path.dirname(seq)
+    parameters=["cPecanLastz",
                             "--format=cigar",
                             "--notrivial",
                             lastzArguments,
                             "%s[multiple][nameparse=darkspace]" % os.path.basename(seq),
-                            "%s[nameparse=darkspace]" % os.path.basename(seq)])
+                            "%s[nameparse=darkspace]" % os.path.basename(seq)]
+    if samplingRates:
+        parameters += ["--samplingRates", samplingRates]
+    cactus_call(work_dir=work_dir, outfile=alignmentsFile,
+                parameters=parameters)
     
 def runCactusRealign(seq1, seq2, inputAlignmentsFile, outputAlignmentsFile, realignArguments, work_dir=None):
     cactus_call(infile=inputAlignmentsFile, outfile=outputAlignmentsFile, work_dir=work_dir,
