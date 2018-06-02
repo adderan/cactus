@@ -415,6 +415,7 @@ def main():
                         help="The way to run the Cactus binaries", default=None)
     parser.add_argument("--samplingRates", dest="samplingRates", type=str)
     parser.add_argument("--unmask", dest="unmask", action="store_true")
+    parser.add_argument("--blockDegreeFile", dest="blockDegreeFile", default=None)
 
     options = parser.parse_args()
     options.cactusDir = getTempDirectory()
